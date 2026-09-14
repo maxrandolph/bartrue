@@ -19,6 +19,36 @@
   </div>
   <h1>Free tools that never leave your browser</h1>
   <p>An open-source clone of footrue.com. Every PDF and image tool here runs locally on your device &mdash; no server, no account, no internet connection required once you've loaded the page.</p>
+
+  <div class="hero-quickstart">
+    <div class="hero-quickstart__header">
+      <div class="hero-quickstart__title">
+        <span>⚡</span>
+        <span>Run locally in seconds:</span>
+        <span class="hero-quickstart__pill">Zero build • Zero dependencies</span>
+      </div>
+      <button class="hero-quickstart__copy-btn" id="quickstart-copy-btn" type="button" aria-label="Copy clone command">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        <span id="quickstart-btn-text">Copy</span>
+      </button>
+    </div>
+    <div class="hero-quickstart__terminal">
+      <div class="hero-quickstart__terminal-line">
+        <span class="hero-quickstart__prompt">$</span>
+        <span class="hero-quickstart__cmd">git clone https://github.com/maxrandolph/bartrue.git &amp;&amp; cd bartrue</span>
+      </div>
+      <div class="hero-quickstart__comment"># then simply double-click index.html or serve locally:</div>
+      <div class="hero-quickstart__terminal-line">
+        <span class="hero-quickstart__prompt">$</span>
+        <span class="hero-quickstart__cmd">python3 -m http.server 8080</span>
+      </div>
+    </div>
+    <div class="hero-quickstart__footer">
+      <span>✓ No Node.js, npm, or bundlers</span>
+      <span>✓ Double-click index.html directly</span>
+      <span>✓ 100% offline</span>
+    </div>
+  </div>
 </section>
 
 <div class="search-box">
@@ -75,6 +105,24 @@ python3 -m http.server 8080</pre>
     input: document.getElementById("global-search"),
     root: ""
   });
+
+  var copyBtn = document.getElementById("quickstart-copy-btn");
+  var copyText = document.getElementById("quickstart-btn-text");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", function () {
+      var cmd = "git clone https://github.com/maxrandolph/bartrue.git && cd bartrue";
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cmd).then(function () {
+          copyBtn.classList.add("copied");
+          copyText.textContent = "Copied!";
+          setTimeout(function () {
+            copyBtn.classList.remove("copied");
+            copyText.textContent = "Copy";
+          }, 2000);
+        });
+      }
+    });
+  }
 </script>
 </body>
 </html>
