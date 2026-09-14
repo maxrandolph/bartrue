@@ -268,50 +268,63 @@ p {
 /* ---------- Hero Quickstart (Run Locally) ---------- */
 
 .hero-quickstart {
-  max-width: 660px;
-  margin: 24px auto 8px;
-  background: var(--bg-card);
+  width: 100%;
+  margin: 28px 0 32px;
+  background: #090c12;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 16px 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
   text-align: left;
 }
 
-.hero-quickstart__header {
+@media (prefers-color-scheme: light) {
+  .hero-quickstart {
+    background: #0d1117;
+    border-color: #30363d;
+  }
+}
+
+.terminal-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 10px;
+  padding: 10px 16px;
+  background: #161b22;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.hero-quickstart__title {
+.terminal-dots {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
+  gap: 7px;
 }
 
-.hero-quickstart__pill {
-  font-size: 11px;
+.terminal-dots .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot--red { background: #ff5f56; }
+.dot--yellow { background: #ffbd2e; }
+.dot--green { background: #27c93f; }
+
+.terminal-title {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #8b949e;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-weight: 500;
-  color: var(--accent-strong);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-radius: 999px;
-  padding: 2px 8px;
+  letter-spacing: 0.02em;
 }
 
-.hero-quickstart__copy-btn {
-  background: var(--bg-elevated);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 4px 10px;
+.terminal-copy-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e6edf3;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 5px 12px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -321,73 +334,72 @@ p {
   transition: all 0.15s ease;
 }
 
-.hero-quickstart__copy-btn:hover {
+.terminal-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.hero-quickstart__copy-btn.copied {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border-color: var(--accent-strong);
-  color: var(--accent-strong);
+.terminal-copy-btn.copied {
+  background: rgba(52, 211, 153, 0.2);
+  border-color: #34d399;
+  color: #34d399;
 }
 
-.hero-quickstart__terminal {
-  background: #06080c;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
+.terminal-body {
+  padding: 16px 20px;
+  background: #090c12;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #e6edf3;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: #f0f6fc;
   overflow-x: auto;
 }
 
 @media (prefers-color-scheme: light) {
-  .hero-quickstart__terminal {
-    background: #1e232c;
-    color: #f0f3f6;
+  .terminal-body {
+    background: #0d1117;
   }
 }
 
-.hero-quickstart__terminal-line {
+
+.terminal-row {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.hero-quickstart__prompt {
+.terminal-prompt {
   color: var(--accent);
   user-select: none;
   font-weight: bold;
 }
 
-.hero-quickstart__cmd {
+.terminal-cmd {
   color: #f0f6fc;
+  font-weight: 500;
 }
 
-.hero-quickstart__comment {
+.terminal-comment {
   color: #8b949e;
   margin: 6px 0 2px;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
-.hero-quickstart__footer {
-  margin-top: 10px;
+.terminal-footer {
+  padding: 9px 18px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--border-soft);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 16px;
+  justify-content: center;
+  gap: 8px 16px;
   font-size: 12px;
   color: var(--text-dim);
 }
 
-.hero-quickstart__footer span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
 
 /* ---------- Cards / grid ---------- */
 

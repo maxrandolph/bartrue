@@ -1,128 +1,148 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Bartrue &mdash; free offline PDF &amp; image tools</title>
-<meta name="description" content="An open-source, offline-first clone of footrue.com. Free PDF and image tools that run entirely in your browser." />
-<link rel="stylesheet" href="assets/css/main.css" />
-<script>window.BARTRUE_ROOT = ""; window.BARTRUE_ACTIVE = "home";</script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bartrue &mdash; free offline PDF &amp; image tools</title>
+  <meta name="description"
+    content="An open-source, offline-first clone of footrue.com. Free PDF and image tools that run entirely in your browser." />
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <script>window.BARTRUE_ROOT = ""; window.BARTRUE_ACTIVE = "home";</script>
 </head>
+
 <body>
 
-<section class="hero">
-  <div class="hero-badges">
-    <span class="badge badge--accent">100% client-side</span>
-    <span class="badge">No uploads, ever</span>
-    <span class="badge">Works fully offline</span>
-    <span class="badge">MIT licensed</span>
-  </div>
-  <h1>Free tools that never leave your browser</h1>
-  <p>An open-source clone of footrue.com. Every PDF and image tool here runs locally on your device &mdash; no server, no account, no internet connection required once you've loaded the page.</p>
-
-  <div class="hero-quickstart">
-    <div class="hero-quickstart__header">
-      <div class="hero-quickstart__title">
-        <span>⚡</span>
-        <span>Run locally in seconds:</span>
-        <span class="hero-quickstart__pill">Zero build • Zero dependencies</span>
-      </div>
-      <button class="hero-quickstart__copy-btn" id="quickstart-copy-btn" type="button" aria-label="Copy clone command">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-        <span id="quickstart-btn-text">Copy</span>
-      </button>
+  <section class="hero">
+    <div class="hero-badges">
+      <span class="badge badge--accent">100% client-side</span>
+      <span class="badge">No uploads, ever</span>
+      <span class="badge">Works fully offline</span>
+      <span class="badge">MIT licensed</span>
     </div>
-    <div class="hero-quickstart__terminal">
-      <div class="hero-quickstart__terminal-line">
-        <span class="hero-quickstart__prompt">$</span>
-        <span class="hero-quickstart__cmd">git clone https://github.com/maxrandolph/bartrue.git &amp;&amp; cd bartrue</span>
+    <h1>Free tools that never leave your browser</h1>
+    <p>An open-source clone of footrue.com. Every PDF and image tool here runs locally on your device &mdash; no server,
+      no account, no internet connection required once you've loaded the page.</p>
+
+    <div class="hero-quickstart">
+      <div class="terminal-bar">
+        <div class="terminal-dots">
+          <span class="dot dot--red"></span>
+          <span class="dot dot--yellow"></span>
+          <span class="dot dot--green"></span>
+          <span class="terminal-title">Run offline locally</span>
+        </div>
+        <button class="terminal-copy-btn" id="quickstart-copy-btn" type="button" aria-label="Copy clone command">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span id="quickstart-btn-text">Copy</span>
+        </button>
       </div>
-      <div class="hero-quickstart__comment"># then simply double-click index.html or serve locally:</div>
-      <div class="hero-quickstart__terminal-line">
-        <span class="hero-quickstart__prompt">$</span>
-        <span class="hero-quickstart__cmd">python3 -m http.server 8080</span>
+      <div class="terminal-body">
+        <div class="terminal-row">
+          <span class="terminal-prompt">$</span>
+          <span class="terminal-cmd">git clone https://github.com/maxrandolph/bartrue.git &amp;&amp; cd bartrue</span>
+        </div>
+        <div class="terminal-comment"># then simply double-click index.html or serve locally:</div>
+        <div class="terminal-row">
+          <span class="terminal-prompt">$</span>
+          <span class="terminal-cmd">python3 -m http.server 8080</span>
+        </div>
+      </div>
+      <div class="terminal-footer">
+        <span>✓ Zero build step</span>
+        <span>•</span>
+        <span>Zero dependencies</span>
+        <span>•</span>
+        <span>No Node.js or npm</span>
+        <span>•</span>
+        <span>100% offline from disk</span>
       </div>
     </div>
-    <div class="hero-quickstart__footer">
-      <span>✓ No Node.js, npm, or bundlers</span>
-      <span>✓ Double-click index.html directly</span>
-      <span>✓ 100% offline</span>
+  </section>
+
+  <div class="search-box">
+    <input type="text" id="global-search" placeholder="Search all tools&hellip; (e.g. merge, compress, watermark)"
+      aria-label="Search tools" />
+  </div>
+
+  <h2 class="section-title">Browse by category</h2>
+  <div class="category-strip">
+    <a class="card" href="pdf-tools/index.html">
+      <span class="card__icon">&#128196;</span>
+      <h3>PDF Tools</h3>
+      <p>Merge, split, compress, watermark, redact and more.</p>
+      <div class="count" id="pdf-count"></div>
+    </a>
+    <a class="card" href="image-tools/index.html">
+      <span class="card__icon">&#128444;&#65039;</span>
+      <h3>Image Tools</h3>
+      <p>Convert, compress, resize, crop and edit images.</p>
+      <div class="count" id="image-count"></div>
+    </a>
+  </div>
+
+  <h2 class="section-title">All tools</h2>
+  <div id="tool-grid" class="grid"></div>
+
+  <hr class="sep" />
+
+  <div class="two-col">
+    <div>
+      <h2>Why this exists</h2>
+      <p>footrue.com is a genuinely useful set of free browser tools, but it isn't open source &mdash; you have to trust
+        a closed server-side (or at least unauditable) implementation with your files, and you can't run it yourself if
+        it ever goes away.</p>
+      <p>This project reimplements the same tools from scratch, with a very deliberate constraint: <strong>zero build
+          step and zero dependencies</strong>. There's no <code>npm install</code>, no bundler, no CDN script, nothing
+        fetched at runtime. Clone the repo, open <code>index.html</code> (or point any static file server at the
+        folder), and everything works &mdash; even with your network adapter switched off.</p>
     </div>
-  </div>
-</section>
-
-<div class="search-box">
-  <input type="text" id="global-search" placeholder="Search all tools&hellip; (e.g. merge, compress, watermark)" aria-label="Search tools" />
-</div>
-
-<h2 class="section-title">Browse by category</h2>
-<div class="category-strip">
-  <a class="card" href="pdf-tools/index.html">
-    <span class="card__icon">&#128196;</span>
-    <h3>PDF Tools</h3>
-    <p>Merge, split, compress, watermark, redact and more.</p>
-    <div class="count" id="pdf-count"></div>
-  </a>
-  <a class="card" href="image-tools/index.html">
-    <span class="card__icon">&#128444;&#65039;</span>
-    <h3>Image Tools</h3>
-    <p>Convert, compress, resize, crop and edit images.</p>
-    <div class="count" id="image-count"></div>
-  </a>
-</div>
-
-<h2 class="section-title">All tools</h2>
-<div id="tool-grid" class="grid"></div>
-
-<hr class="sep" />
-
-<div class="two-col">
-  <div>
-    <h2>Why this exists</h2>
-    <p>footrue.com is a genuinely useful set of free browser tools, but it isn't open source &mdash; you have to trust a closed server-side (or at least unauditable) implementation with your files, and you can't run it yourself if it ever goes away.</p>
-    <p>This project reimplements the same tools from scratch, with a very deliberate constraint: <strong>zero build step and zero dependencies</strong>. There's no <code>npm install</code>, no bundler, no CDN script, nothing fetched at runtime. Clone the repo, open <code>index.html</code> (or point any static file server at the folder), and everything works &mdash; even with your network adapter switched off.</p>
-  </div>
-  <div class="tool-panel">
-    <h3>Run it locally</h3>
-    <pre class="mono" style="white-space:pre-wrap;font-size:12.5px;color:var(--text-dim);margin:0 0 12px;">git clone &lt;this repo&gt;
+    <div class="tool-panel">
+      <h3>Run it locally</h3>
+      <pre class="mono" style="white-space:pre-wrap;font-size:12.5px;color:var(--text-dim);margin:0 0 12px;">git clone &lt;this repo&gt;
 cd bartrue
 # then just open index.html in a browser, or:
 python3 -m http.server 8080</pre>
-    <p style="margin:0;font-size:13px;">No Node.js, no npm, no build. See the README for details and current tool status.</p>
+      <p style="margin:0;font-size:13px;">No Node.js, no npm, no build. See the README for details and current tool
+        status.</p>
+    </div>
   </div>
-</div>
 
-<script src="assets/js/tools-data.js"></script>
-<script src="assets/js/nav.js"></script>
-<script src="assets/js/download.js"></script>
-<script src="assets/js/render-grid.js"></script>
-<script>
-  document.getElementById("pdf-count").textContent = window.bartrueToolsByCategory("pdf").length + " tools";
-  document.getElementById("image-count").textContent = window.bartrueToolsByCategory("image").length + " tools";
-  window.Bartrue.initSearchableGrid({
-    tools: window.BARTRUE_TOOLS,
-    container: document.getElementById("tool-grid"),
-    input: document.getElementById("global-search"),
-    root: ""
-  });
-
-  var copyBtn = document.getElementById("quickstart-copy-btn");
-  var copyText = document.getElementById("quickstart-btn-text");
-  if (copyBtn) {
-    copyBtn.addEventListener("click", function () {
-      var cmd = "git clone https://github.com/maxrandolph/bartrue.git && cd bartrue";
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(cmd).then(function () {
-          copyBtn.classList.add("copied");
-          copyText.textContent = "Copied!";
-          setTimeout(function () {
-            copyBtn.classList.remove("copied");
-            copyText.textContent = "Copy";
-          }, 2000);
-        });
-      }
+  <script src="assets/js/tools-data.js"></script>
+  <script src="assets/js/nav.js"></script>
+  <script src="assets/js/download.js"></script>
+  <script src="assets/js/render-grid.js"></script>
+  <script>
+    document.getElementById("pdf-count").textContent = window.bartrueToolsByCategory("pdf").length + " tools";
+    document.getElementById("image-count").textContent = window.bartrueToolsByCategory("image").length + " tools";
+    window.Bartrue.initSearchableGrid({
+      tools: window.BARTRUE_TOOLS,
+      container: document.getElementById("tool-grid"),
+      input: document.getElementById("global-search"),
+      root: ""
     });
-  }
-</script>
+
+    var copyBtn = document.getElementById("quickstart-copy-btn");
+    var copyText = document.getElementById("quickstart-btn-text");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", function () {
+        var cmd = "git clone https://github.com/maxrandolph/bartrue.git && cd bartrue";
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(cmd).then(function () {
+            copyBtn.classList.add("copied");
+            copyText.textContent = "Copied!";
+            setTimeout(function () {
+              copyBtn.classList.remove("copied");
+              copyText.textContent = "Copy";
+            }, 2000);
+          });
+        }
+      });
+    }
+  </script>
 </body>
+
 </html>
