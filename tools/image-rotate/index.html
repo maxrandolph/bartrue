@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rotate &amp; Flip Image &mdash; Bartrue</title>
+<meta name="description" content="Rotate an image by 90/180/270 degrees or mirror it, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-rotate";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Rotate &amp; Flip</div>
+<div class="tool-header">
+  <div>
+    <h1>Rotate &amp; Flip</h1>
+    <p class="lede">Rotate by 90&deg; increments and/or mirror horizontally or vertically.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+
+  <div id="options" style="display:none">
+    <div class="btn-row">
+      <button class="btn" id="rot-left" type="button">&#8634; Rotate left</button>
+      <button class="btn" id="rot-right" type="button">&#8635; Rotate right</button>
+      <button class="btn" id="rot-180" type="button">180&deg;</button>
+      <button class="btn" id="flip-h" type="button">&#8596; Flip horizontal</button>
+      <button class="btn" id="flip-v" type="button">&#8597; Flip vertical</button>
+      <button class="btn" id="reset" type="button">Reset</button>
+    </div>
+    <div id="result" class="result-preview" style="margin-top:16px"></div>
+    <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, resultBlob = null;
+  var rotation = 0; // 0,90,180,270
+  var flipH = false, flipV = false;
+
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    icon: '↻',
+    title: 'Drop an image here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file; rotation = 0; flipH = false; flipV = false;
+      document.getElementById('file-info').style.display = '';
+      document.getElementById('file-info').textContent = file.name + ' — ' + bmp.width + '×' + bmp.height;
+      document.getElementById('options').style.display = '';
+      render();
+    }
+  });
+
+  async function render() {
+    var statusEl = document.getElementById('status');
+    try {
+      var swapped = rotation === 90 || rotation === 270;
+      var w = swapped ? bitmap.height : bitmap.width;
+      var h = swapped ? bitmap.width : bitmap.height;
+      var canvas = Bartrue.makeCanvas(w, h);
+      var ctx = canvas.getContext('2d');
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+      ctx.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
+      var mime = srcFile.type && srcFile.type.indexOf('image/') === 0 && srcFile.type !== 'image/svg+xml' ? srcFile.type : 'image/png';
+      resultBlob = await Bartrue.canvasToBlob(canvas, mime);
+      Bartrue.showCanvasResult(document.getElementById('result'), canvas, w + '×' + h);
+      document.getElementById('download-row').style.display = '';
+      Bartrue.setStatus(statusEl, '');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not render this image: ' + e.message, 'error');
+    }
+  }
+
+  document.getElementById('rot-left').addEventListener('click', function () { rotation = (rotation + 270) % 360; render(); });
+  document.getElementById('rot-right').addEventListener('click', function () { rotation = (rotation + 90) % 360; render(); });
+  document.getElementById('rot-180').addEventListener('click', function () { rotation = (rotation + 180) % 360; render(); });
+  document.getElementById('flip-h').addEventListener('click', function () { flipH = !flipH; render(); });
+  document.getElementById('flip-v').addEventListener('click', function () { flipV = !flipV; render(); });
+  document.getElementById('reset').addEventListener('click', function () { rotation = 0; flipH = false; flipV = false; render(); });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    var ext = Bartrue.EXT_FOR_MIME[resultBlob.type] || 'png';
+    Bartrue.downloadBlob(resultBlob, Bartrue.suggestName(srcFile.name, 'rotated', ext));
+  });
+})();
+</script>
+</body>
+</html>

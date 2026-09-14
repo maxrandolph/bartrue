@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Compress PDF &mdash; Bartrue</title>
+<meta name="description" content="Shrink a PDF's file size by recompressing its embedded images, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "pdf-compress";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../pdf-tools/index.html">PDF Tools</a> / Compress PDF</div>
+<div class="tool-header">
+  <div>
+    <h1>Compress PDF</h1>
+    <p class="lede">Recompresses embedded photos to cut file size. Text and vector graphics are untouched, so this works best on image-heavy PDFs (scans, photo-filled reports).</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+
+  <div id="options" style="display:none">
+    <div class="field">
+      <label>Image quality (<span id="q-val">60</span>%)</label>
+      <input type="range" id="quality" min="10" max="95" value="60" />
+      <div class="field-hint">Lower = smaller file, more visible compression artifacts.</div>
+    </div>
+    <div class="checkbox-row" style="margin-bottom:16px">
+      <input type="checkbox" id="downscale" />
+      <label for="downscale" style="margin:0">Also downscale images wider/taller than 1600px</label>
+    </div>
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Compress PDF</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+
+  <div id="result" class="result-preview" style="display:none">
+    <iframe id="result-frame" style="width:100%;height:520px;border:0;background:#fff"></iframe>
+    <div class="result-preview__bar">
+      <span id="result-info"></span>
+      <button id="download-btn" class="btn btn--primary">Download</button>
+    </div>
+  </div>
+
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/pdf/flate.js"></script>
+<script src="../../assets/js/pdf/core.js"></script>
+<script src="../../assets/js/pdf/document.js"></script>
+<script src="../../assets/js/pdf/writer.js"></script>
+<script src="../../assets/js/pdf/build.js"></script>
+<script src="../../assets/js/pdf/compress.js"></script>
+
+<script>
+(function () {
+  var doc = null, srcFile = null, srcBytes = null;
+  var statusEl = document.getElementById('status');
+
+  document.getElementById('quality').addEventListener('input', function () {
+    document.getElementById('q-val').textContent = this.value;
+  });
+
+  Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'application/pdf',
+    icon: '\u{1F5DC}️',
+    title: 'Drop a PDF file here',
+    hint: 'or click to browse',
+    onFiles: async function (files) {
+      srcFile = files[0];
+      Bartrue.setStatus(statusEl, 'Loading…', 'loading');
+      try {
+        srcBytes = new Uint8Array(await srcFile.arrayBuffer());
+        doc = await PDFDocument.load(srcBytes);
+        var pages = await doc.getPages();
+        document.getElementById('file-info').style.display = '';
+        document.getElementById('file-info').textContent = srcFile.name + ' — ' + pages.length + ' page' + (pages.length === 1 ? '' : 's') + ' · ' + Bartrue.formatBytes(srcFile.size);
+        document.getElementById('options').style.display = '';
+        document.getElementById('result').style.display = 'none';
+        Bartrue.setStatus(statusEl, '');
+      } catch (e) {
+        Bartrue.setStatus(statusEl, 'Could not read this PDF: ' + e.message, 'error');
+      }
+    }
+  });
+
+  var outputBlob = null;
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    Bartrue.setStatus(statusEl, 'Compressing…', 'loading');
+    try {
+      var quality = parseInt(document.getElementById('quality').value, 10) / 100;
+      var downscale = document.getElementById('downscale').checked;
+      var freshDoc = await PDFDocument.load(srcBytes); // start clean in case of a re-run
+      var report = await PDFCompress.compressDocument(freshDoc, { quality: quality, maxDim: downscale ? 1600 : 0 });
+      var outBytes = await freshDoc.save();
+      outputBlob = new Blob([outBytes], { type: 'application/pdf' });
+      var url = URL.createObjectURL(outputBlob);
+      document.getElementById('result-frame').src = url;
+      var pct = srcFile.size > 0 ? Math.round((1 - outputBlob.size / srcFile.size) * 100) : 0;
+      document.getElementById('result-info').textContent =
+        Bartrue.formatBytes(srcFile.size) + ' → ' + Bartrue.formatBytes(outputBlob.size) +
+        (pct > 0 ? ' (' + pct + '% smaller)' : '') + ' · ' + report.imagesTouched + ' image(s) recompressed';
+      document.getElementById('result').style.display = '';
+      Bartrue.setStatus(statusEl, report.imagesTouched ? 'Done.' : 'Done — no images found to recompress (this PDF is likely mostly text/vector already).', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not compress this PDF: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    if (outputBlob) Bartrue.downloadBlob(outputBlob, Bartrue.suggestName(srcFile.name, 'compressed', 'pdf'));
+  });
+})();
+</script>
+</body>
+</html>

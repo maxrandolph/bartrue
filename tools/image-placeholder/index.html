@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Placeholder Image &mdash; Bartrue</title>
+<meta name="description" content="Generate placeholder graphics at any size and color, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-placeholder";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Placeholder Image</div>
+<div class="tool-header">
+  <div>
+    <h1>Placeholder Image</h1>
+    <p class="lede">Generate a placeholder graphic at any size, with a background color and centered label text.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div class="field-row">
+    <div class="field"><label>Width</label><input type="number" id="w" min="1" max="8000" value="600" /></div>
+    <div class="field"><label>Height</label><input type="number" id="h" min="1" max="8000" value="400" /></div>
+  </div>
+  <div class="field-row">
+    <div class="field"><label>Background color</label><input type="color" id="bg" value="#94a3b8" style="max-width:120px" /></div>
+    <div class="field"><label>Text color</label><input type="color" id="fg" value="#ffffff" style="max-width:120px" /></div>
+  </div>
+  <div class="field"><label>Label text (leave blank for dimensions)</label><input type="text" id="label" placeholder="600 × 400" /></div>
+  <div class="btn-row"><button id="run-btn" class="btn btn--primary">Generate</button></div>
+  <div id="status" class="status-line"></div>
+  <div id="result" class="result-preview" style="display:none"></div>
+  <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download PNG</button></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var resultBlob = null;
+
+  async function generate() {
+    var statusEl = document.getElementById('status');
+    try {
+      var w = Math.max(1, Math.min(8000, parseInt(document.getElementById('w').value, 10) || 600));
+      var h = Math.max(1, Math.min(8000, parseInt(document.getElementById('h').value, 10) || 400));
+      var bg = document.getElementById('bg').value;
+      var fg = document.getElementById('fg').value;
+      var label = document.getElementById('label').value.trim() || (w + ' × ' + h);
+
+      var canvas = Bartrue.makeCanvas(w, h);
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = fg;
+      var fontSize = Math.max(12, Math.min(w, h) / 8);
+      ctx.font = fontSize + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // Shrink to fit if the label is wider than the canvas.
+      while (ctx.measureText(label).width > w * 0.9 && fontSize > 8) {
+        fontSize -= 2;
+        ctx.font = fontSize + 'px sans-serif';
+      }
+      ctx.fillText(label, w / 2, h / 2);
+
+      resultBlob = await Bartrue.canvasToBlob(canvas, 'image/png');
+      Bartrue.showCanvasResult(document.getElementById('result'), canvas, w + '×' + h);
+      document.getElementById('download-row').style.display = '';
+      Bartrue.setStatus(statusEl, '');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not generate the placeholder: ' + e.message, 'error');
+    }
+  }
+
+  document.getElementById('run-btn').addEventListener('click', generate);
+  document.getElementById('download-btn').addEventListener('click', function () {
+    Bartrue.downloadBlob(resultBlob, 'placeholder-' + document.getElementById('w').value + 'x' + document.getElementById('h').value + '.png');
+  });
+
+  generate();
+})();
+</script>
+</body>
+</html>

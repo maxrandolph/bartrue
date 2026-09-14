@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Add Page Numbers to PDF &mdash; Bartrue</title>
+<meta name="description" content="Insert page numbers into a PDF document, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "pdf-page-numbers";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../pdf-tools/index.html">PDF Tools</a> / Add Page Numbers</div>
+<div class="tool-header">
+  <div>
+    <h1>Add Page Numbers</h1>
+    <p class="lede">Stamp a page number (with an optional format and starting number) onto every page.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+
+  <div id="options" style="display:none">
+    <div class="field">
+      <label>Format</label>
+      <input type="text" id="format" value="Page {n} of {total}" />
+      <div class="field-hint">Use <code>{n}</code> for the page number and <code>{total}</code> for the page count.</div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Start numbering at</label><input type="number" id="start-num" value="1" /></div>
+      <div class="field"><label>Font size</label><input type="number" id="pn-size" value="11" min="6" max="60" /></div>
+      <div class="field">
+        <label>Position</label>
+        <select id="position">
+          <option value="bottom-center" selected>Bottom center</option>
+          <option value="bottom-right">Bottom right</option>
+          <option value="bottom-left">Bottom left</option>
+          <option value="top-center">Top center</option>
+          <option value="top-right">Top right</option>
+          <option value="top-left">Top left</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Add Page Numbers</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+
+  <div id="result" class="result-preview" style="display:none">
+    <iframe id="result-frame" style="width:100%;height:520px;border:0;background:#fff"></iframe>
+    <div class="result-preview__bar">
+      <span id="result-info"></span>
+      <button id="download-btn" class="btn btn--primary">Download</button>
+    </div>
+  </div>
+
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/pdf/flate.js"></script>
+<script src="../../assets/js/pdf/core.js"></script>
+<script src="../../assets/js/pdf/document.js"></script>
+<script src="../../assets/js/pdf/writer.js"></script>
+<script src="../../assets/js/pdf/fonts.js"></script>
+<script src="../../assets/js/pdf/build.js"></script>
+
+<script>
+(function () {
+  var doc = null, srcFile = null;
+  var statusEl = document.getElementById('status');
+
+  Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'application/pdf',
+    icon: '\u{1F522}',
+    title: 'Drop a PDF file here',
+    hint: 'or click to browse',
+    onFiles: async function (files) {
+      srcFile = files[0];
+      Bartrue.setStatus(statusEl, 'Loading…', 'loading');
+      try {
+        var bytes = new Uint8Array(await srcFile.arrayBuffer());
+        doc = await PDFDocument.load(bytes);
+        var pages = await doc.getPages();
+        document.getElementById('file-info').style.display = '';
+        document.getElementById('file-info').textContent = srcFile.name + ' — ' + pages.length + ' page' + (pages.length === 1 ? '' : 's');
+        document.getElementById('options').style.display = '';
+        document.getElementById('result').style.display = 'none';
+        Bartrue.setStatus(statusEl, '');
+      } catch (e) {
+        Bartrue.setStatus(statusEl, 'Could not read this PDF: ' + e.message, 'error');
+      }
+    }
+  });
+
+  var outputBlob = null;
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    Bartrue.setStatus(statusEl, 'Adding page numbers…', 'loading');
+    try {
+      var format = document.getElementById('format').value || '{n}';
+      var startNum = parseInt(document.getElementById('start-num').value, 10) || 1;
+      var size = parseFloat(document.getElementById('pn-size').value) || 11;
+      var position = document.getElementById('position').value;
+      var pages = await doc.getPages();
+      var total = pages.length;
+      var margin = 28;
+
+      for (var i = 0; i < pages.length; i++) {
+        await PDFBuild.ensureFontResource(doc, pages[i], 'Helvetica', 'FTHelv');
+        var box = await doc.getPageBox(pages[i]);
+        var label = format.replace('{n}', String(startNum + i)).replace('{total}', String(total));
+        var width = PDFFonts.widthOfText('Helvetica', label, size);
+        var x, y;
+        if (position.indexOf('bottom') === 0) y = box[1] + margin;
+        else y = box[3] - margin;
+        if (position.indexOf('center') !== -1) x = (box[0] + box[2]) / 2 - width / 2;
+        else if (position.indexOf('right') !== -1) x = box[2] - margin - width;
+        else x = box[0] + margin;
+
+        var ops = PDFBuild.textOperators({ text: label, size: size, x: x, y: y, angle: 0, color: [0, 0, 0], resourceKey: 'FTHelv' });
+        await PDFBuild.appendPageContent(doc, pages[i], ops);
+      }
+      var outBytes = await doc.save();
+      outputBlob = new Blob([outBytes], { type: 'application/pdf' });
+      var url = URL.createObjectURL(outputBlob);
+      document.getElementById('result-frame').src = url;
+      document.getElementById('result-info').textContent = Bartrue.formatBytes(outputBlob.size);
+      document.getElementById('result').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not add page numbers: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    if (outputBlob) Bartrue.downloadBlob(outputBlob, Bartrue.suggestName(srcFile.name, 'numbered', 'pdf'));
+  });
+})();
+</script>
+</body>
+</html>

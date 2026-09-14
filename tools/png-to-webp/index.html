@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PNG to WebP &mdash; Bartrue</title>
+<meta name="description" content="Convert PNG images to WebP, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "png-to-webp";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / PNG to WebP</div>
+<div class="tool-header">
+  <div>
+    <h1>PNG to WebP</h1>
+    <p class="lede">Convert a PNG image to the smaller, modern WebP format.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="field-row">
+      <div class="field"><label>Quality (<span id="q-val">85</span>%)</label><input type="range" id="quality" min="1" max="100" value="85" /></div>
+    </div>
+
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Convert</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div id="result" class="result-preview" style="display:none"></div>
+  <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+<script src="../../assets/js/image/simple-convert.js"></script>
+
+<script>
+Bartrue.initSimpleConverter({
+  accept: "image/png",
+  icon: "\u{1F504}",
+  dropTitle: "Drop a PNG image here",
+  outputMime: "image/webp",
+  outputExt: "webp",
+  decodeErrorMessage: "Could not read this PNG file — it may be corrupted."
+});
+</script>
+</body>
+</html>

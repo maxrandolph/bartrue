@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Favicon Generator &mdash; Bartrue</title>
+<meta name="description" content="Generate a full favicon set (.ico + PNG sizes) from one image, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-favicon";</script>
+<style>
+  .favicon-grid { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px; }
+  .favicon-grid figure { margin: 0; text-align: center; }
+  .favicon-grid img { background: repeating-conic-gradient(#8883 0% 25%, transparent 0% 50%) 50% / 16px 16px; border-radius: 6px; border: 1px solid var(--border); }
+  .favicon-grid figcaption { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Favicon Generator</div>
+<div class="tool-header">
+  <div>
+    <h1>Favicon Generator</h1>
+    <p class="lede">Upload a square-ish source image to generate a full favicon set: <code>favicon.ico</code> plus standard PNG sizes.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Generate favicon set</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div id="result-area" style="display:none">
+    <div class="favicon-grid" id="preview-grid"></div>
+    <div class="note" style="margin-top:14px">Add this to your HTML <code>&lt;head&gt;</code>:
+      <pre id="snippet" style="white-space:pre-wrap;font-size:12px;margin-top:8px"></pre>
+    </div>
+    <div class="btn-row" style="margin-top:12px"><button id="download-btn" class="btn btn--primary">Download favicon-set.zip</button></div>
+  </div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/zip.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+<script src="../../assets/js/image/ico.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, zipBlob = null;
+  var PNG_SIZES = [16, 32, 48, 64, 128, 180, 192, 512];
+  var ICO_SIZES = [16, 32, 48];
+
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    icon: '⭐',
+    title: 'Drop a logo or icon image here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file;
+      document.getElementById('file-info').style.display = '';
+      document.getElementById('file-info').textContent = file.name + ' — ' + bmp.width + '×' + bmp.height;
+      document.getElementById('options').style.display = '';
+    }
+  });
+
+  function renderSquare(size) {
+    var canvas = Bartrue.makeCanvas(size, size);
+    var ctx = canvas.getContext('2d');
+    // Cover-fit + center-crop onto a square canvas.
+    var scale = Math.max(size / bitmap.width, size / bitmap.height);
+    var dw = bitmap.width * scale, dh = bitmap.height * scale;
+    ctx.drawImage(bitmap, (size - dw) / 2, (size - dh) / 2, dw, dh);
+    return canvas;
+  }
+
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    var statusEl = document.getElementById('status');
+    Bartrue.setStatus(statusEl, 'Generating…', 'loading');
+    try {
+      var files = [];
+      var grid = document.getElementById('preview-grid');
+      grid.innerHTML = '';
+
+      var pngBlobsForIco = {};
+      for (var i = 0; i < PNG_SIZES.length; i++) {
+        var size = PNG_SIZES[i];
+        var canvas = renderSquare(size);
+        var blob = await Bartrue.canvasToBlob(canvas, 'image/png');
+        var bytes = new Uint8Array(await blob.arrayBuffer());
+        var name = 'favicon-' + size + 'x' + size + '.png';
+        files.push({ name: name, data: bytes });
+        if (ICO_SIZES.indexOf(size) !== -1) pngBlobsForIco[size] = bytes;
+
+        var fig = document.createElement('figure');
+        var img = document.createElement('img');
+        img.src = canvas.toDataURL();
+        img.width = Math.min(size, 64); img.height = Math.min(size, 64);
+        var cap = document.createElement('figcaption');
+        cap.textContent = size + '×' + size;
+        fig.appendChild(img); fig.appendChild(cap);
+        grid.appendChild(fig);
+      }
+      // Sizes not already rendered at PNG-list resolution but needed for the .ico
+      for (var j = 0; j < ICO_SIZES.length; j++) {
+        var s = ICO_SIZES[j];
+        if (!pngBlobsForIco[s]) {
+          var c2 = renderSquare(s);
+          var b2 = await Bartrue.canvasToBlob(c2, 'image/png');
+          pngBlobsForIco[s] = new Uint8Array(await b2.arrayBuffer());
+        }
+      }
+      var icoEntries = ICO_SIZES.map(function (s) { return { size: s, bytes: pngBlobsForIco[s] }; });
+      var icoBytes = Bartrue.buildIco(icoEntries);
+      files.push({ name: 'favicon.ico', data: icoBytes });
+
+      zipBlob = await BartrueZip.createZip(files);
+      document.getElementById('snippet').textContent =
+        '<link rel="icon" href="/favicon.ico" sizes="any">\n' +
+        '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">\n' +
+        '<link rel="apple-touch-icon" sizes="180x180" href="/favicon-180x180.png">\n' +
+        '<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">';
+
+      document.getElementById('result-area').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not generate the favicon set: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    Bartrue.downloadBlob(zipBlob, 'favicon-set.zip');
+  });
+})();
+</script>
+</body>
+</html>

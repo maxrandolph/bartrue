@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Merge PDF &mdash; Bartrue</title>
+<meta name="description" content="Combine multiple PDF files into one document, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "pdf-merge";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../pdf-tools/index.html">PDF Tools</a> / Merge PDF</div>
+<div class="tool-header">
+  <div>
+    <h1>Merge PDF</h1>
+    <p class="lede">Combine multiple PDFs into a single document. Drag to reorder files before merging.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <ul id="file-list" class="file-list"></ul>
+
+  <div class="btn-row">
+    <button id="run-btn" class="btn btn--primary" disabled>Merge PDFs</button>
+    <button id="clear-btn" class="btn" style="display:none">Clear</button>
+  </div>
+  <div id="status" class="status-line"></div>
+
+  <div id="result" class="result-preview" style="display:none">
+    <iframe id="result-frame" style="width:100%;height:520px;border:0;background:#fff"></iframe>
+    <div class="result-preview__bar">
+      <span id="result-info"></span>
+      <button id="download-btn" class="btn btn--primary">Download merged.pdf</button>
+    </div>
+  </div>
+
+  <div class="privacy-note">&#128274; Your files are merged in-memory in this tab and are never uploaded anywhere.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/pdf/flate.js"></script>
+<script src="../../assets/js/pdf/core.js"></script>
+<script src="../../assets/js/pdf/document.js"></script>
+<script src="../../assets/js/pdf/writer.js"></script>
+<script src="../../assets/js/pdf/build.js"></script>
+
+<script>
+(function () {
+  var files = []; // { file, bytes }
+  var dz = Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'application/pdf',
+    multiple: true,
+    icon: '\u{1F4D1}',
+    title: 'Drop PDF files here',
+    hint: 'or click to browse — add as many as you like, in any order',
+    onFiles: function (newFiles) {
+      newFiles.forEach(function (f) { files.push({ file: f, bytes: null }); });
+      renderList();
+    }
+  });
+
+  var listEl = document.getElementById('file-list');
+  var runBtn = document.getElementById('run-btn');
+  var clearBtn = document.getElementById('clear-btn');
+  var statusEl = document.getElementById('status');
+  var resultEl = document.getElementById('result');
+  var resultFrame = document.getElementById('result-frame');
+  var resultInfo = document.getElementById('result-info');
+  var downloadBtn = document.getElementById('download-btn');
+  var outputBlob = null;
+
+  function renderList() {
+    listEl.innerHTML = '';
+    files.forEach(function (entry, idx) {
+      var li = document.createElement('li');
+      li.className = 'file-row';
+      li.innerHTML =
+        '<span class="file-row__name">' + Bartrue.escapeHtml(entry.file.name) + '</span>' +
+        '<span class="file-row__size">' + Bartrue.formatBytes(entry.file.size) + '</span>';
+      var up = document.createElement('button');
+      up.className = 'file-row__remove'; up.type = 'button'; up.title = 'Move up'; up.innerHTML = '&uarr;';
+      up.disabled = idx === 0;
+      up.addEventListener('click', function (e) { e.stopPropagation(); moveItem(idx, idx - 1); });
+      var down = document.createElement('button');
+      down.className = 'file-row__remove'; down.type = 'button'; down.title = 'Move down'; down.innerHTML = '&darr;';
+      down.disabled = idx === files.length - 1;
+      down.addEventListener('click', function (e) { e.stopPropagation(); moveItem(idx, idx + 1); });
+      var rm = document.createElement('button');
+      rm.className = 'file-row__remove'; rm.type = 'button'; rm.title = 'Remove'; rm.innerHTML = '&times;';
+      rm.addEventListener('click', function (e) { e.stopPropagation(); files.splice(idx, 1); renderList(); });
+      li.appendChild(up); li.appendChild(down); li.appendChild(rm);
+      listEl.appendChild(li);
+    });
+    runBtn.disabled = files.length < 2;
+    clearBtn.style.display = files.length ? '' : 'none';
+    if (files.length < 2) {
+      Bartrue.setStatus(statusEl, files.length === 1 ? 'Add at least one more PDF to merge.' : '');
+    } else {
+      Bartrue.setStatus(statusEl, '');
+    }
+    resultEl.style.display = 'none';
+  }
+
+  function moveItem(from, to) {
+    var item = files.splice(from, 1)[0];
+    files.splice(to, 0, item);
+    renderList();
+  }
+
+  clearBtn.addEventListener('click', function () {
+    files = [];
+    renderList();
+  });
+
+  runBtn.addEventListener('click', async function () {
+    runBtn.disabled = true;
+    Bartrue.setStatus(statusEl, 'Merging ' + files.length + ' files…', 'loading');
+    try {
+      var destDoc = PDFDocument.create();
+      var destPagesRef = PDFBuild.getRootPagesRef(destDoc);
+      var totalPages = 0;
+      for (var i = 0; i < files.length; i++) {
+        var buf = await files[i].file.arrayBuffer();
+        var bytes = new Uint8Array(buf);
+        var srcDoc = await PDFDocument.load(bytes);
+        var pages = await srcDoc.getPages();
+        var memo = new Map();
+        for (var p = 0; p < pages.length; p++) {
+          var newRef = await PDFBuild.copyPage(srcDoc, pages[p], destDoc, destPagesRef, memo);
+          PDFBuild.addPageToTree(destDoc, destPagesRef, newRef);
+          totalPages++;
+        }
+      }
+      var outBytes = await destDoc.save();
+      outputBlob = new Blob([outBytes], { type: 'application/pdf' });
+      var url = URL.createObjectURL(outputBlob);
+      resultFrame.src = url;
+      resultInfo.textContent = totalPages + ' pages · ' + Bartrue.formatBytes(outputBlob.size);
+      resultEl.style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not merge these PDFs: ' + e.message, 'error');
+    }
+    runBtn.disabled = files.length < 2;
+  });
+
+  downloadBtn.addEventListener('click', function () {
+    if (outputBlob) Bartrue.downloadBlob(outputBlob, 'merged.pdf');
+  });
+
+  renderList();
+})();
+</script>
+</body>
+</html>

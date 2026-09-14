@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Image Metadata &mdash; Bartrue</title>
+<meta name="description" content="View EXIF and file information embedded in an image, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-metadata";</script>
+<style>
+  #meta-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  #meta-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  #meta-table td:first-child { color: var(--text-dim); width: 40%; }
+</style>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Image Metadata</div>
+<div class="tool-header">
+  <div>
+    <h1>Image Metadata</h1>
+    <p class="lede">Inspect file info and, for JPEGs, embedded EXIF camera data.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="result-area" style="display:none">
+    <div class="two-col">
+      <div id="preview" class="result-preview"></div>
+      <div>
+        <h3>File</h3>
+        <table id="meta-table"></table>
+        <h3 style="margin-top:20px">EXIF</h3>
+        <table id="exif-table"></table>
+        <div id="no-exif" class="note" style="display:none">No EXIF data found. This is normal for PNG, WebP, screenshots, and images that have been re-saved or exported without metadata.</div>
+      </div>
+    </div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+<script src="../../assets/js/image/exif.js"></script>
+
+<script>
+(function () {
+  Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'image/*',
+    icon: 'ℹ️',
+    title: 'Drop an image here',
+    onFiles: async function (files) {
+      var file = files[0];
+      var statusEl = document.getElementById('status');
+      Bartrue.setStatus(statusEl, 'Reading…', 'loading');
+      try {
+        var bitmap = await Bartrue.loadImageBitmap(file);
+        document.getElementById('preview').style.display = '';
+        document.getElementById('preview').innerHTML = '<img src="' + URL.createObjectURL(file) + '" />';
+
+        var metaRows = [
+          ['File name', file.name],
+          ['File size', Bartrue.formatBytes(file.size)],
+          ['MIME type', file.type || '(unknown)'],
+          ['Dimensions', bitmap.width + ' × ' + bitmap.height + ' px'],
+          ['Megapixels', ((bitmap.width * bitmap.height) / 1e6).toFixed(2) + ' MP'],
+          ['Last modified', file.lastModified ? new Date(file.lastModified).toLocaleString() : '(unknown)']
+        ];
+        document.getElementById('meta-table').innerHTML = metaRows.map(function (r) {
+          return '<tr><td>' + Bartrue_escape(r[0]) + '</td><td>' + Bartrue_escape(String(r[1])) + '</td></tr>';
+        }).join('');
+
+        var exif = await Bartrue.readExif(file);
+        if (exif) {
+          var rows = Object.keys(exif).filter(function (k) { return k !== 'OrientationLabel'; }).map(function (k) {
+            var v = k === 'Orientation' ? (exif.OrientationLabel || exif[k]) : exif[k];
+            return '<tr><td>' + Bartrue_escape(k) + '</td><td>' + Bartrue_escape(String(v)) + '</td></tr>';
+          });
+          document.getElementById('exif-table').innerHTML = rows.join('');
+          document.getElementById('no-exif').style.display = 'none';
+        } else {
+          document.getElementById('exif-table').innerHTML = '';
+          document.getElementById('no-exif').style.display = '';
+        }
+
+        document.getElementById('result-area').style.display = '';
+        Bartrue.setStatus(statusEl, '');
+      } catch (e) {
+        console.error(e);
+        Bartrue.setStatus(statusEl, 'Could not read this image: ' + e.message, 'error');
+      }
+    }
+  });
+
+  function Bartrue_escape(s) {
+    return (Bartrue.escapeHtml ? Bartrue.escapeHtml(s) : String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    }));
+  }
+})();
+</script>
+</body>
+</html>

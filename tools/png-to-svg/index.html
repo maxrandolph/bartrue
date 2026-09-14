@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PNG to SVG &mdash; Bartrue</title>
+<meta name="description" content="Wrap a raster image into an SVG container, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "png-to-svg";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / PNG to SVG</div>
+<div class="tool-header">
+  <div>
+    <h1>PNG to SVG</h1>
+    <p class="lede">Wrap a raster image in an SVG container so it can be dropped anywhere an SVG is expected.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="note note--info">This embeds your original image (as Base64) inside an SVG wrapper with the correct <code>viewBox</code> — it does not trace it into actual vector paths. The image will still look like a photo, not line art, but the file becomes a valid, scalable <code>.svg</code> that any SVG-aware tool can open.</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Generate SVG</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div id="result" class="result-preview" style="display:none"></div>
+  <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download SVG</button></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, resultBlob = null, dataUri = '';
+
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    accept: 'image/*',
+    icon: '\u{1F504}',
+    title: 'Drop a PNG (or any raster image) here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file;
+      document.getElementById('file-info').style.display = '';
+      document.getElementById('file-info').textContent = file.name + ' — ' + bmp.width + '×' + bmp.height;
+      document.getElementById('options').style.display = '';
+    }
+  });
+
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    var statusEl = document.getElementById('status');
+    Bartrue.setStatus(statusEl, 'Building SVG…', 'loading');
+    try {
+      var canvas = Bartrue.makeCanvas(bitmap.width, bitmap.height);
+      canvas.getContext('2d').drawImage(bitmap, 0, 0);
+      dataUri = canvas.toDataURL('image/png');
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ' +
+        'width="' + bitmap.width + '" height="' + bitmap.height + '" viewBox="0 0 ' + bitmap.width + ' ' + bitmap.height + '">\n' +
+        '  <image width="' + bitmap.width + '" height="' + bitmap.height + '" xlink:href="' + dataUri + '" />\n' +
+        '</svg>\n';
+      resultBlob = new Blob([svg], { type: 'image/svg+xml' });
+
+      var container = document.getElementById('result');
+      container.style.display = '';
+      container.innerHTML = '<img src="' + dataUri + '" /><div class="result-preview__bar"><span>' + Bartrue.formatBytes(resultBlob.size) + '</span></div>';
+      document.getElementById('download-row').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not build the SVG: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    Bartrue.downloadBlob(resultBlob, Bartrue.suggestName(srcFile.name, '', 'svg'));
+  });
+})();
+</script>
+</body>
+</html>

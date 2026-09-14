@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AVIF to JPG &mdash; Bartrue</title>
+<meta name="description" content="Convert AVIF images to JPG, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "avif-to-jpg";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / AVIF to JPG</div>
+<div class="tool-header">
+  <div>
+    <h1>AVIF to JPG</h1>
+    <p class="lede">Convert a next-gen AVIF image to the widely-compatible JPG format.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="note note--info">AVIF decoding relies on your browser's built-in image support. Most current versions of Chrome, Firefox and Edge can decode AVIF; older browsers may not.</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="field-row">
+      <div class="field"><label>Quality (<span id="q-val">85</span>%)</label><input type="range" id="quality" min="1" max="100" value="85" /></div>
+    </div>
+    <div class="field" id="bg-field">
+      <label>Background color (for transparent areas)</label>
+      <input type="color" id="bg-color" value="#ffffff" style="max-width:120px" />
+    </div>
+
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Convert</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div id="result" class="result-preview" style="display:none"></div>
+  <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+<script src="../../assets/js/image/simple-convert.js"></script>
+
+<script>
+Bartrue.initSimpleConverter({
+  accept: "image/avif",
+  icon: "\u{1F504}",
+  dropTitle: "Drop a AVIF image here",
+  outputMime: "image/jpeg",
+  outputExt: "jpg",
+  decodeErrorMessage: "Could not read this AVIF file — your browser may not support decoding AVIF yet."
+});
+</script>
+</body>
+</html>

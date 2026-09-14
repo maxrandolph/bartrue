@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Background Remover &mdash; Bartrue</title>
+<meta name="description" content="Strip a photo's background using an offline color-based heuristic, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "background-remover";</script>
+<style>
+  #pick-canvas { max-width: 100%; cursor: crosshair; border-radius: 8px; display: block; }
+</style>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Background Remover</div>
+<div class="tool-header">
+  <div>
+    <h1>Background Remover</h1>
+    <p class="lede">A color-based (chroma-key style) background remover — works best on flat, solid-color backgrounds. This is a heuristic, not AI segmentation, so it runs instantly and fully offline.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="note note--info">Click the image to sample the background color (defaults to the top-left corner). Then adjust the tolerance until the background disappears cleanly. Works best when the subject stands out clearly from a solid or near-solid background — busy photo backgrounds won't cut out well.</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="options" style="display:none">
+    <canvas id="pick-canvas"></canvas>
+    <div class="field-row" style="margin-top:14px">
+      <div class="field"><label>Sampled color</label><div style="display:flex;align-items:center;gap:8px"><div id="swatch" style="width:32px;height:32px;border-radius:6px;border:1px solid var(--border)"></div><code id="swatch-hex">#ffffff</code></div></div>
+      <div class="field"><label>Tolerance (<span id="t-val">40</span>)</label><input type="range" id="tolerance" min="1" max="150" value="40" /></div>
+      <div class="field"><label>Edge softness (<span id="f-val">20</span>)</label><input type="range" id="feather" min="0" max="80" value="20" /></div>
+    </div>
+    <div id="result" class="result-preview"></div>
+    <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download PNG</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, resultBlob = null;
+  var bg = { r: 255, g: 255, b: 255 };
+  var pickCanvas = document.getElementById('pick-canvas');
+  var pickCtx;
+
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    icon: '✂️',
+    title: 'Drop an image here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file;
+      pickCanvas.width = bmp.width; pickCanvas.height = bmp.height;
+      pickCtx = pickCanvas.getContext('2d', { willReadFrequently: true });
+      pickCtx.drawImage(bmp, 0, 0);
+      var d = pickCtx.getImageData(0, 0, 1, 1).data;
+      bg = { r: d[0], g: d[1], b: d[2] };
+      updateSwatch();
+      document.getElementById('options').style.display = '';
+      render();
+    }
+  });
+
+  function updateSwatch() {
+    var hex = '#' + [bg.r, bg.g, bg.b].map(function (n) { return n.toString(16).padStart(2, '0'); }).join('');
+    document.getElementById('swatch').style.background = hex;
+    document.getElementById('swatch-hex').textContent = hex;
+  }
+
+  pickCanvas.addEventListener('click', function (e) {
+    var rect = pickCanvas.getBoundingClientRect();
+    var scaleX = pickCanvas.width / rect.width, scaleY = pickCanvas.height / rect.height;
+    var x = Math.max(0, Math.min(pickCanvas.width - 1, Math.floor((e.clientX - rect.left) * scaleX)));
+    var y = Math.max(0, Math.min(pickCanvas.height - 1, Math.floor((e.clientY - rect.top) * scaleY)));
+    var d = pickCtx.getImageData(x, y, 1, 1).data;
+    bg = { r: d[0], g: d[1], b: d[2] };
+    updateSwatch();
+    render();
+  });
+
+  async function render() {
+    var statusEl = document.getElementById('status');
+    var tolerance = parseInt(document.getElementById('tolerance').value, 10);
+    var feather = parseInt(document.getElementById('feather').value, 10);
+    document.getElementById('t-val').textContent = tolerance;
+    document.getElementById('f-val').textContent = feather;
+    try {
+      var canvas = Bartrue.makeCanvas(bitmap.width, bitmap.height);
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0);
+      var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      var data = imgData.data;
+      var lowEdge = tolerance;
+      var highEdge = tolerance + feather;
+      for (var i = 0; i < data.length; i += 4) {
+        var dr = data[i] - bg.r, dg = data[i + 1] - bg.g, db = data[i + 2] - bg.b;
+        var dist = Math.sqrt(dr * dr + dg * dg + db * db);
+        if (dist <= lowEdge) {
+          data[i + 3] = 0;
+        } else if (dist < highEdge) {
+          var t = (dist - lowEdge) / Math.max(1, (highEdge - lowEdge));
+          data[i + 3] = Math.round(data[i + 3] * t);
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      resultBlob = await Bartrue.canvasToBlob(canvas, 'image/png');
+      Bartrue.showCanvasResult(document.getElementById('result'), canvas, Bartrue.formatBytes(resultBlob.size));
+      document.getElementById('download-row').style.display = '';
+      Bartrue.setStatus(statusEl, '');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not process this image: ' + e.message, 'error');
+    }
+  }
+
+  document.getElementById('tolerance').addEventListener('input', render);
+  document.getElementById('feather').addEventListener('input', render);
+  document.getElementById('download-btn').addEventListener('click', function () {
+    Bartrue.downloadBlob(resultBlob, Bartrue.suggestName(srcFile.name, 'no-bg', 'png'));
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Redact PDF &mdash; Bartrue</title>
+<meta name="description" content="Find and permanently remove sensitive text from a PDF, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "redact-pdf";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../pdf-tools/index.html">PDF Tools</a> / Redact PDF</div>
+<div class="tool-header">
+  <div>
+    <h1>Redact PDF</h1>
+    <p class="lede">Search for text and permanently remove it &mdash; not just cover it. The underlying characters are deleted from the page, then a black box is drawn over the area.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span><span class="tag tag--beta">Search-based</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+
+  <div id="options" style="display:none">
+    <div class="field">
+      <label>Text to redact</label>
+      <textarea id="terms" rows="3" placeholder="One term per line, e.g.&#10;John Smith&#10;555-1234&#10;Account #4471"></textarea>
+      <div class="field-hint">Every text run that contains a match is blacked out and its text is deleted from the file.</div>
+    </div>
+    <div class="checkbox-row" style="margin-bottom:16px"><input type="checkbox" id="case-sensitive" /><label for="case-sensitive" style="margin:0">Case-sensitive match</label></div>
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Find &amp; Redact</button></div>
+    <div class="note note--warning">This matches selectable text only &mdash; it can't find words inside a scanned page (an image with no text layer), and very tightly-kerned PDFs may redact a whole line or phrase rather than a single word. Always review the result before sharing it.</div>
+  </div>
+  <div id="status" class="status-line"></div>
+
+  <div id="result" class="result-preview" style="display:none">
+    <iframe id="result-frame" style="width:100%;height:520px;border:0;background:#fff"></iframe>
+    <div class="result-preview__bar">
+      <span id="result-info"></span>
+      <button id="download-btn" class="btn btn--primary">Download</button>
+    </div>
+  </div>
+
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/pdf/flate.js"></script>
+<script src="../../assets/js/pdf/core.js"></script>
+<script src="../../assets/js/pdf/document.js"></script>
+<script src="../../assets/js/pdf/writer.js"></script>
+<script src="../../assets/js/pdf/fonts.js"></script>
+<script src="../../assets/js/pdf/build.js"></script>
+<script src="../../assets/js/pdf/content.js"></script>
+<script src="../../assets/js/pdf/font-metrics.js"></script>
+<script src="../../assets/js/pdf/redact.js"></script>
+
+<script>
+(function () {
+  var doc = null, srcFile = null;
+  var statusEl = document.getElementById('status');
+
+  Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'application/pdf',
+    icon: '⬛',
+    title: 'Drop a PDF file here',
+    hint: 'or click to browse',
+    onFiles: async function (files) {
+      srcFile = files[0];
+      Bartrue.setStatus(statusEl, 'Loading…', 'loading');
+      try {
+        var bytes = new Uint8Array(await srcFile.arrayBuffer());
+        doc = await PDFDocument.load(bytes);
+        var pages = await doc.getPages();
+        document.getElementById('file-info').style.display = '';
+        document.getElementById('file-info').textContent = srcFile.name + ' — ' + pages.length + ' page' + (pages.length === 1 ? '' : 's');
+        document.getElementById('options').style.display = '';
+        document.getElementById('result').style.display = 'none';
+        Bartrue.setStatus(statusEl, '');
+      } catch (e) {
+        Bartrue.setStatus(statusEl, 'Could not read this PDF: ' + e.message, 'error');
+      }
+    }
+  });
+
+  var outputBlob = null;
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    Bartrue.setStatus(statusEl, 'Searching and redacting…', 'loading');
+    try {
+      var terms = document.getElementById('terms').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+      if (!terms.length) throw new Error('Enter at least one term to search for.');
+      var caseSensitive = document.getElementById('case-sensitive').checked;
+      var result = await PDFRedact.redactDocument(doc, terms, { caseSensitive: caseSensitive });
+      var outBytes = await doc.save();
+      outputBlob = new Blob([outBytes], { type: 'application/pdf' });
+      var url = URL.createObjectURL(outputBlob);
+      document.getElementById('result-frame').src = url;
+      document.getElementById('result-info').textContent = result.total + ' match' + (result.total === 1 ? '' : 'es') + ' redacted · ' + Bartrue.formatBytes(outputBlob.size);
+      document.getElementById('result').style.display = '';
+      Bartrue.setStatus(statusEl, result.total ? 'Done.' : 'No matches found — nothing was changed.', result.total ? 'success' : '');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not redact this PDF: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    if (outputBlob) Bartrue.downloadBlob(outputBlob, Bartrue.suggestName(srcFile.name, 'redacted', 'pdf'));
+  });
+})();
+</script>
+</body>
+</html>

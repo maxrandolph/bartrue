@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Split PDF &mdash; Bartrue</title>
+<meta name="description" content="Divide a PDF into separate files by page range, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "pdf-split";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../pdf-tools/index.html">PDF Tools</a> / Split PDF</div>
+<div class="tool-header">
+  <div>
+    <h1>Split PDF</h1>
+    <p class="lede">Break one PDF into several files &mdash; every page separately, fixed-size chunks, or custom ranges.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+
+  <div id="options" style="display:none">
+    <div class="field">
+      <label>Split mode</label>
+      <select id="mode">
+        <option value="each">Every page as its own PDF</option>
+        <option value="chunks">Fixed-size chunks (N pages per file)</option>
+        <option value="ranges">Custom ranges</option>
+      </select>
+    </div>
+    <div class="field" id="chunk-field" style="display:none">
+      <label>Pages per file</label>
+      <input type="number" id="chunk-size" min="1" value="1" />
+    </div>
+    <div class="field" id="ranges-field" style="display:none">
+      <label>Page ranges</label>
+      <input type="text" id="ranges" placeholder="e.g. 1-3, 5, 8-10" />
+      <div class="field-hint">Comma-separated. Each range/page becomes its own PDF file.</div>
+    </div>
+
+    <div class="btn-row">
+      <button id="run-btn" class="btn btn--primary">Split PDF</button>
+    </div>
+  </div>
+  <div id="status" class="status-line"></div>
+
+  <div id="result" style="display:none">
+    <div class="note note--info" id="result-info"></div>
+    <div class="btn-row"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  </div>
+
+  <div class="privacy-note">&#128274; Splitting happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/zip.js"></script>
+<script src="../../assets/js/pdf/flate.js"></script>
+<script src="../../assets/js/pdf/core.js"></script>
+<script src="../../assets/js/pdf/document.js"></script>
+<script src="../../assets/js/pdf/writer.js"></script>
+<script src="../../assets/js/pdf/build.js"></script>
+
+<script>
+(function () {
+  var srcDoc = null, srcFile = null, pageCount = 0;
+  var dz = Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'application/pdf',
+    icon: '✂️',
+    title: 'Drop a PDF file here',
+    hint: 'or click to browse',
+    onFiles: async function (files) {
+      srcFile = files[0];
+      Bartrue.setStatus(document.getElementById('status'), 'Loading…', 'loading');
+      try {
+        var bytes = new Uint8Array(await srcFile.arrayBuffer());
+        srcDoc = await PDFDocument.load(bytes);
+        pageCount = await srcDoc.getPageCount();
+        document.getElementById('file-info').style.display = '';
+        document.getElementById('file-info').textContent = srcFile.name + ' — ' + pageCount + ' page' + (pageCount === 1 ? '' : 's') + ' · ' + Bartrue.formatBytes(srcFile.size);
+        document.getElementById('options').style.display = '';
+        document.getElementById('result').style.display = 'none';
+        Bartrue.setStatus(document.getElementById('status'), '');
+      } catch (e) {
+        Bartrue.setStatus(document.getElementById('status'), 'Could not read this PDF: ' + e.message, 'error');
+      }
+    }
+  });
+
+  var modeSel = document.getElementById('mode');
+  modeSel.addEventListener('change', function () {
+    document.getElementById('chunk-field').style.display = modeSel.value === 'chunks' ? '' : 'none';
+    document.getElementById('ranges-field').style.display = modeSel.value === 'ranges' ? '' : 'none';
+  });
+
+  function parseRanges(str, max) {
+    var groups = [];
+    str.split(',').forEach(function (part) {
+      part = part.trim();
+      if (!part) return;
+      var m = /^(\d+)\s*-\s*(\d+)$/.exec(part);
+      if (m) {
+        var a = Math.max(1, parseInt(m[1], 10)), b = Math.min(max, parseInt(m[2], 10));
+        var pages = [];
+        for (var i = a; i <= b; i++) pages.push(i - 1);
+        groups.push(pages);
+      } else if (/^\d+$/.test(part)) {
+        var n = parseInt(part, 10);
+        if (n >= 1 && n <= max) groups.push([n - 1]);
+      }
+    });
+    return groups;
+  }
+
+  async function buildSubset(pageIndices) {
+    var destDoc = PDFDocument.create();
+    var destPagesRef = PDFBuild.getRootPagesRef(destDoc);
+    var memo = new Map();
+    var pages = await srcDoc.getPages();
+    for (var i = 0; i < pageIndices.length; i++) {
+      var ref = await PDFBuild.copyPage(srcDoc, pages[pageIndices[i]], destDoc, destPagesRef, memo);
+      PDFBuild.addPageToTree(destDoc, destPagesRef, ref);
+    }
+    return destDoc.save();
+  }
+
+  var lastZipBlob = null, lastSingleBlob = null, lastSingleName = null;
+
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    var statusEl = document.getElementById('status');
+    Bartrue.setStatus(statusEl, 'Splitting…', 'loading');
+    document.getElementById('result').style.display = 'none';
+    try {
+      var groups = [];
+      if (modeSel.value === 'each') {
+        for (var i = 0; i < pageCount; i++) groups.push([i]);
+      } else if (modeSel.value === 'chunks') {
+        var size = Math.max(1, parseInt(document.getElementById('chunk-size').value, 10) || 1);
+        for (var start = 0; start < pageCount; start += size) {
+          var g = [];
+          for (var p = start; p < Math.min(pageCount, start + size); p++) g.push(p);
+          groups.push(g);
+        }
+      } else {
+        groups = parseRanges(document.getElementById('ranges').value, pageCount);
+        if (!groups.length) throw new Error('No valid page ranges given.');
+      }
+
+      var baseName = (srcFile.name || 'document').replace(/\.pdf$/i, '');
+      if (groups.length === 1) {
+        var bytes = await buildSubset(groups[0]);
+        lastSingleBlob = new Blob([bytes], { type: 'application/pdf' });
+        lastZipBlob = null;
+        lastSingleName = baseName + '-p' + (groups[0][0] + 1) + (groups[0].length > 1 ? '-' + (groups[0][groups[0].length - 1] + 1) : '') + '.pdf';
+        document.getElementById('result-info').textContent = '1 file · ' + Bartrue.formatBytes(lastSingleBlob.size);
+      } else {
+        var zipFiles = [];
+        for (var gi = 0; gi < groups.length; gi++) {
+          var b = await buildSubset(groups[gi]);
+          var label = groups[gi].length === 1 ? 'p' + (groups[gi][0] + 1) : 'p' + (groups[gi][0] + 1) + '-' + (groups[gi][groups[gi].length - 1] + 1);
+          zipFiles.push({ name: baseName + '-' + label + '.pdf', data: b });
+        }
+        lastZipBlob = await BartrueZip.createZip(zipFiles);
+        lastSingleBlob = null;
+        document.getElementById('result-info').textContent = groups.length + ' files bundled into a .zip · ' + Bartrue.formatBytes(lastZipBlob.size);
+      }
+      document.getElementById('result').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not split this PDF: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    if (lastZipBlob) Bartrue.downloadBlob(lastZipBlob, 'split-pages.zip');
+    else if (lastSingleBlob) Bartrue.downloadBlob(lastSingleBlob, lastSingleName || 'split.pdf');
+  });
+})();
+</script>
+</body>
+</html>

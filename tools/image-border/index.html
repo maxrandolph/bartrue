@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Add Border &mdash; Bartrue</title>
+<meta name="description" content="Frame an image with a solid color border, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-border";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Add Border</div>
+<div class="tool-header">
+  <div>
+    <h1>Add Border</h1>
+    <p class="lede">Frame an image with a solid color border of any thickness.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="field-row">
+      <div class="field"><label>Border width (px)</label><input type="range" id="width" min="1" max="200" value="20" /></div>
+      <div class="field"><label>Color</label><input type="color" id="color" value="#000000" style="max-width:120px" /></div>
+    </div>
+    <div class="field"><label><input type="checkbox" id="rounded" /> Rounded corners</label></div>
+    <div class="field" id="radius-field" style="display:none"><label>Corner radius (<span id="r-val">24</span>px)</label><input type="range" id="radius" min="1" max="200" value="24" /></div>
+    <div id="result" class="result-preview"></div>
+    <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, resultBlob = null;
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    icon: '\u{1F5BC}️',
+    title: 'Drop an image here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file;
+      document.getElementById('file-info').style.display = '';
+      document.getElementById('file-info').textContent = file.name + ' — ' + bmp.width + '×' + bmp.height;
+      document.getElementById('options').style.display = '';
+      render();
+    }
+  });
+
+  document.getElementById('rounded').addEventListener('change', function () {
+    document.getElementById('radius-field').style.display = this.checked ? '' : 'none';
+    render();
+  });
+
+  function roundedRectPath(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  async function render() {
+    var border = parseInt(document.getElementById('width').value, 10);
+    var color = document.getElementById('color').value;
+    var rounded = document.getElementById('rounded').checked;
+    var radius = parseInt(document.getElementById('radius').value, 10);
+    document.getElementById('r-val').textContent = radius;
+
+    var w = bitmap.width + border * 2, h = bitmap.height + border * 2;
+    var canvas = Bartrue.makeCanvas(w, h);
+    var ctx = canvas.getContext('2d');
+
+    if (rounded) {
+      roundedRectPath(ctx, 0, 0, w, h, radius + border);
+      ctx.fillStyle = color;
+      ctx.fill();
+      roundedRectPath(ctx, border, border, bitmap.width, bitmap.height, radius);
+      ctx.save();
+      ctx.clip();
+      ctx.drawImage(bitmap, border, border);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(bitmap, border, border);
+    }
+
+    var mime = srcFile.type && srcFile.type.indexOf('image/') === 0 && srcFile.type !== 'image/svg+xml' ? srcFile.type : 'image/png';
+    resultBlob = await Bartrue.canvasToBlob(canvas, mime);
+    Bartrue.showCanvasResult(document.getElementById('result'), canvas, w + '×' + h + ' · ' + Bartrue.formatBytes(resultBlob.size));
+    document.getElementById('download-row').style.display = '';
+  }
+
+  document.getElementById('width').addEventListener('input', render);
+  document.getElementById('color').addEventListener('input', render);
+  document.getElementById('radius').addEventListener('input', render);
+  document.getElementById('download-btn').addEventListener('click', function () {
+    var ext = Bartrue.EXT_FOR_MIME[resultBlob.type] || 'png';
+    Bartrue.downloadBlob(resultBlob, Bartrue.suggestName(srcFile.name, 'bordered', ext));
+  });
+})();
+</script>
+</body>
+</html>

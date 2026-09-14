@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Crop Image &mdash; Bartrue</title>
+<meta name="description" content="Remove unwanted portions of an image with a draggable crop box, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-crop";</script>
+<style>
+  #crop-stage { position: relative; display: inline-block; max-width: 100%; touch-action: none; user-select: none; }
+  #crop-stage img { display: block; max-width: 100%; height: auto; }
+  #crop-box { position: absolute; border: 2px dashed var(--accent); background: rgba(110,231,183,0.15); cursor: move; }
+  #crop-box .handle { position: absolute; width: 12px; height: 12px; background: var(--accent); border-radius: 3px; }
+  #crop-box .handle.br { right: -6px; bottom: -6px; cursor: nwse-resize; }
+</style>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Crop Image</div>
+<div class="tool-header">
+  <div>
+    <h1>Crop Image</h1>
+    <p class="lede">Drag the box to select the area to keep, or type exact pixel values.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="crop-area" style="display:none">
+    <div id="crop-stage">
+      <img id="stage-img" />
+      <div id="crop-box"><div class="handle br"></div></div>
+    </div>
+    <div class="field-row" style="margin-top:16px">
+      <div class="field"><label>X</label><input type="number" id="c-x" min="0" /></div>
+      <div class="field"><label>Y</label><input type="number" id="c-y" min="0" /></div>
+      <div class="field"><label>Width</label><input type="number" id="c-w" min="1" /></div>
+      <div class="field"><label>Height</label><input type="number" id="c-h" min="1" /></div>
+    </div>
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Crop</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+
+  <div id="result" class="result-preview" style="display:none"></div>
+  <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download</button></div>
+
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, resultBlob = null;
+  var stage = document.getElementById('crop-stage');
+  var img = document.getElementById('stage-img');
+  var box = document.getElementById('crop-box');
+  var xEl = document.getElementById('c-x'), yEl = document.getElementById('c-y'), wEl = document.getElementById('c-w'), hEl = document.getElementById('c-h');
+  var scale = 1;
+
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    icon: '✂️',
+    title: 'Drop an image here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file;
+      img.src = URL.createObjectURL(file);
+      img.onload = function () {
+        scale = img.clientWidth / bmp.width;
+        setRect(Math.round(bmp.width * 0.1), Math.round(bmp.height * 0.1), Math.round(bmp.width * 0.8), Math.round(bmp.height * 0.8));
+      };
+      document.getElementById('crop-area').style.display = '';
+      document.getElementById('result').style.display = 'none';
+      document.getElementById('download-row').style.display = 'none';
+    }
+  });
+
+  function setRect(x, y, w, h) {
+    x = Math.max(0, Math.min(x, bitmap.width - 1));
+    y = Math.max(0, Math.min(y, bitmap.height - 1));
+    w = Math.max(1, Math.min(w, bitmap.width - x));
+    h = Math.max(1, Math.min(h, bitmap.height - y));
+    xEl.value = Math.round(x); yEl.value = Math.round(y); wEl.value = Math.round(w); hEl.value = Math.round(h);
+    box.style.left = (x * scale) + 'px';
+    box.style.top = (y * scale) + 'px';
+    box.style.width = (w * scale) + 'px';
+    box.style.height = (h * scale) + 'px';
+  }
+  function currentRect() {
+    return { x: parseInt(xEl.value, 10) || 0, y: parseInt(yEl.value, 10) || 0, w: parseInt(wEl.value, 10) || 1, h: parseInt(hEl.value, 10) || 1 };
+  }
+  [xEl, yEl, wEl, hEl].forEach(function (el) {
+    el.addEventListener('input', function () { var r = currentRect(); setRect(r.x, r.y, r.w, r.h); });
+  });
+
+  var dragMode = null, dragStart = null, rectStart = null;
+  box.addEventListener('pointerdown', function (e) {
+    dragMode = e.target.classList.contains('handle') ? 'resize' : 'move';
+    dragStart = { x: e.clientX, y: e.clientY };
+    rectStart = currentRect();
+    box.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  box.addEventListener('pointermove', function (e) {
+    if (!dragMode) return;
+    var dx = (e.clientX - dragStart.x) / scale, dy = (e.clientY - dragStart.y) / scale;
+    if (dragMode === 'move') setRect(rectStart.x + dx, rectStart.y + dy, rectStart.w, rectStart.h);
+    else setRect(rectStart.x, rectStart.y, rectStart.w + dx, rectStart.h + dy);
+  });
+  box.addEventListener('pointerup', function () { dragMode = null; });
+
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    var statusEl = document.getElementById('status');
+    Bartrue.setStatus(statusEl, 'Cropping…', 'loading');
+    try {
+      var r = currentRect();
+      var canvas = Bartrue.makeCanvas(r.w, r.h);
+      canvas.getContext('2d').drawImage(bitmap, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+      var mime = srcFile.type && srcFile.type.indexOf('image/') === 0 && srcFile.type !== 'image/svg+xml' ? srcFile.type : 'image/png';
+      resultBlob = await Bartrue.canvasToBlob(canvas, mime);
+      Bartrue.showCanvasResult(document.getElementById('result'), canvas, r.w + '×' + r.h + ' · ' + Bartrue.formatBytes(resultBlob.size));
+      document.getElementById('download-row').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not crop this image: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    var ext = Bartrue.EXT_FOR_MIME[resultBlob.type] || 'png';
+    Bartrue.downloadBlob(resultBlob, Bartrue.suggestName(srcFile.name, 'cropped', ext));
+  });
+})();
+</script>
+</body>
+</html>

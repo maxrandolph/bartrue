@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PDF Tools &mdash; Bartrue</title>
+<meta name="description" content="Merge, split, compress, watermark, rotate, redact and edit PDFs entirely in your browser." />
+<link rel="stylesheet" href="../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../"; window.BARTRUE_ACTIVE = "pdf";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../index.html">Home</a> / PDF Tools</div>
+<h1>PDF Tools</h1>
+<p class="lede">Every tool below parses and rewrites your PDF locally, in JavaScript, right in this tab. Nothing is uploaded.</p>
+
+<div class="search-box">
+  <input type="text" id="cat-search" placeholder="Search PDF tools&hellip;" aria-label="Search PDF tools" />
+</div>
+
+<div id="tool-grid" class="grid"></div>
+
+<script src="../assets/js/tools-data.js"></script>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/download.js"></script>
+<script src="../assets/js/render-grid.js"></script>
+<script>
+  window.Bartrue.initSearchableGrid({
+    tools: window.bartrueToolsByCategory("pdf"),
+    container: document.getElementById("tool-grid"),
+    input: document.getElementById("cat-search"),
+    root: "../"
+  });
+</script>
+</body>
+</html>

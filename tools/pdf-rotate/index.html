@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rotate PDF &mdash; Bartrue</title>
+<meta name="description" content="Rotate one or all pages of a PDF by 90, 180 or 270 degrees, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "pdf-rotate";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../pdf-tools/index.html">PDF Tools</a> / Rotate PDF</div>
+<div class="tool-header">
+  <div>
+    <h1>Rotate PDF</h1>
+    <p class="lede">Rotate every page (or just one) by 90&deg;, 180&deg; or 270&deg;.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+
+  <div id="options" style="display:none">
+    <div class="field-row">
+      <div class="field">
+        <label>Apply to</label>
+        <select id="scope">
+          <option value="all">All pages</option>
+          <option value="one">A single page</option>
+        </select>
+      </div>
+      <div class="field" id="page-num-field" style="display:none">
+        <label>Page number</label>
+        <input type="number" id="page-num" min="1" value="1" />
+      </div>
+      <div class="field">
+        <label>Rotate</label>
+        <select id="angle">
+          <option value="90">90&deg; clockwise</option>
+          <option value="180">180&deg;</option>
+          <option value="270">90&deg; counter-clockwise</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Rotate PDF</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+
+  <div id="result" class="result-preview" style="display:none">
+    <iframe id="result-frame" style="width:100%;height:520px;border:0;background:#fff"></iframe>
+    <div class="result-preview__bar">
+      <span id="result-info"></span>
+      <button id="download-btn" class="btn btn--primary">Download</button>
+    </div>
+  </div>
+
+  <div class="privacy-note">&#128274; Rotation happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/pdf/flate.js"></script>
+<script src="../../assets/js/pdf/core.js"></script>
+<script src="../../assets/js/pdf/document.js"></script>
+<script src="../../assets/js/pdf/writer.js"></script>
+<script src="../../assets/js/pdf/build.js"></script>
+
+<script>
+(function () {
+  var doc = null, srcFile = null, pageCount = 0;
+  var statusEl = document.getElementById('status');
+
+  Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'application/pdf',
+    icon: '\u{1F504}',
+    title: 'Drop a PDF file here',
+    hint: 'or click to browse',
+    onFiles: async function (files) {
+      srcFile = files[0];
+      Bartrue.setStatus(statusEl, 'Loading…', 'loading');
+      try {
+        var bytes = new Uint8Array(await srcFile.arrayBuffer());
+        doc = await PDFDocument.load(bytes);
+        pageCount = await doc.getPageCount();
+        document.getElementById('file-info').style.display = '';
+        document.getElementById('file-info').textContent = srcFile.name + ' — ' + pageCount + ' page' + (pageCount === 1 ? '' : 's');
+        document.getElementById('page-num').max = pageCount;
+        document.getElementById('options').style.display = '';
+        document.getElementById('result').style.display = 'none';
+        Bartrue.setStatus(statusEl, '');
+      } catch (e) {
+        Bartrue.setStatus(statusEl, 'Could not read this PDF: ' + e.message, 'error');
+      }
+    }
+  });
+
+  document.getElementById('scope').addEventListener('change', function () {
+    document.getElementById('page-num-field').style.display = this.value === 'one' ? '' : 'none';
+  });
+
+  var outputBlob = null;
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    Bartrue.setStatus(statusEl, 'Rotating…', 'loading');
+    try {
+      var scope = document.getElementById('scope').value;
+      var angle = parseInt(document.getElementById('angle').value, 10);
+      var targetPage = parseInt(document.getElementById('page-num').value, 10) - 1;
+      var pages = await doc.getPages();
+      for (var i = 0; i < pages.length; i++) {
+        if (scope === 'one' && i !== targetPage) continue;
+        var current = await doc.getPageRotate(pages[i]);
+        pages[i].dict.Rotate = ((current + angle) % 360 + 360) % 360;
+      }
+      var outBytes = await doc.save();
+      outputBlob = new Blob([outBytes], { type: 'application/pdf' });
+      var url = URL.createObjectURL(outputBlob);
+      document.getElementById('result-frame').src = url;
+      document.getElementById('result-info').textContent = Bartrue.formatBytes(outputBlob.size);
+      document.getElementById('result').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not rotate this PDF: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    if (outputBlob) Bartrue.downloadBlob(outputBlob, Bartrue.suggestName(srcFile.name, 'rotated', 'pdf'));
+  });
+})();
+</script>
+</body>
+</html>

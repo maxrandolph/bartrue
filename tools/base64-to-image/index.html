@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Base64 to Image &mdash; Bartrue</title>
+<meta name="description" content="Decode a Base64 string back into an image file, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "base64-to-image";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Base64 to Image</div>
+<div class="tool-header">
+  <div>
+    <h1>Base64 to Image</h1>
+    <p class="lede">Paste a Base64 string or data URI and decode it back into a downloadable image.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div class="field"><label>Base64 string or data URI</label><textarea id="input" rows="10" placeholder="data:image/png;base64,iVBORw0KGgo..." style="font-family:monospace;font-size:12px;word-break:break-all"></textarea></div>
+  <div class="field" id="mime-field" style="display:none">
+    <label>Image type (no <code>data:</code> prefix found — pick one)</label>
+    <select id="mime">
+      <option value="image/png">PNG</option>
+      <option value="image/jpeg">JPEG</option>
+      <option value="image/webp">WebP</option>
+      <option value="image/gif">GIF</option>
+    </select>
+  </div>
+  <div class="btn-row"><button id="run-btn" class="btn btn--primary">Decode</button></div>
+  <div id="status" class="status-line"></div>
+  <div id="result" class="result-preview" style="display:none"></div>
+  <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var resultBlob = null;
+  document.getElementById('input').addEventListener('input', function () {
+    var val = this.value.trim();
+    document.getElementById('mime-field').style.display = (val && val.indexOf('data:') !== 0) ? '' : 'none';
+  });
+
+  document.getElementById('run-btn').addEventListener('click', function () {
+    var statusEl = document.getElementById('status');
+    var raw = document.getElementById('input').value.trim();
+    if (!raw) { Bartrue.setStatus(statusEl, 'Paste a Base64 string first.', 'error'); return; }
+    try {
+      var mime, b64;
+      if (raw.indexOf('data:') === 0) {
+        var comma = raw.indexOf(',');
+        var header = raw.slice(5, comma);
+        mime = header.split(';')[0] || 'image/png';
+        b64 = raw.slice(comma + 1);
+      } else {
+        mime = document.getElementById('mime').value;
+        b64 = raw;
+      }
+      var binary = atob(b64.replace(/\s/g, ''));
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      resultBlob = new Blob([bytes], { type: mime });
+      var url = URL.createObjectURL(resultBlob);
+      var container = document.getElementById('result');
+      container.style.display = '';
+      container.innerHTML = '<img src="' + url + '" /><div class="result-preview__bar"><span>' + Bartrue.formatBytes(resultBlob.size) + ' · ' + mime + '</span></div>';
+      document.getElementById('download-row').style.display = '';
+      Bartrue.setStatus(statusEl, 'Decoded.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not decode this string — make sure it is valid Base64.', 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    var ext = Bartrue.EXT_FOR_MIME[resultBlob.type] || 'png';
+    Bartrue.downloadBlob(resultBlob, 'decoded.' + ext);
+  });
+})();
+</script>
+</body>
+</html>

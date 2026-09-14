@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PDF Metadata &mdash; Bartrue</title>
+<meta name="description" content="View and edit a PDF's title, author and other document properties, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "pdf-metadata";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../pdf-tools/index.html">PDF Tools</a> / PDF Metadata</div>
+<div class="tool-header">
+  <div>
+    <h1>PDF Metadata</h1>
+    <p class="lede">View and edit a PDF's Title, Author, Subject and Keywords.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+
+  <div id="options" style="display:none">
+    <div class="field"><label>Title</label><input type="text" id="f-title" /></div>
+    <div class="field"><label>Author</label><input type="text" id="f-author" /></div>
+    <div class="field"><label>Subject</label><input type="text" id="f-subject" /></div>
+    <div class="field"><label>Keywords</label><input type="text" id="f-keywords" /></div>
+    <div class="field"><label>Creator</label><input type="text" id="f-creator" /></div>
+    <div class="field-row">
+      <div class="field"><label>Producer</label><input type="text" id="f-producer" readonly /></div>
+    </div>
+    <div class="checkbox-row" style="margin-bottom:16px"><input type="checkbox" id="strip-all" /><label for="strip-all" style="margin:0">Strip all metadata instead of editing</label></div>
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Save changes</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+
+  <div id="result" style="display:none">
+    <div class="note note--info" id="result-info"></div>
+    <div class="btn-row"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  </div>
+
+  <div class="privacy-note">&#128274; Editing happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/pdf/flate.js"></script>
+<script src="../../assets/js/pdf/core.js"></script>
+<script src="../../assets/js/pdf/document.js"></script>
+<script src="../../assets/js/pdf/writer.js"></script>
+<script src="../../assets/js/pdf/build.js"></script>
+
+<script>
+(function () {
+  var doc = null, srcFile = null;
+  var statusEl = document.getElementById('status');
+  var C = PDFCore;
+
+  function strOf(v) {
+    return v instanceof C.PDFString ? v.asText() : (typeof v === 'string' ? v : '');
+  }
+
+  Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'application/pdf',
+    icon: 'ℹ️',
+    title: 'Drop a PDF file here',
+    hint: 'or click to browse',
+    onFiles: async function (files) {
+      srcFile = files[0];
+      Bartrue.setStatus(statusEl, 'Loading…', 'loading');
+      try {
+        var bytes = new Uint8Array(await srcFile.arrayBuffer());
+        doc = await PDFDocument.load(bytes);
+        var info = await doc.getInfoDict();
+        document.getElementById('f-title').value = strOf(info.Title);
+        document.getElementById('f-author').value = strOf(info.Author);
+        document.getElementById('f-subject').value = strOf(info.Subject);
+        document.getElementById('f-keywords').value = strOf(info.Keywords);
+        document.getElementById('f-creator').value = strOf(info.Creator);
+        document.getElementById('f-producer').value = strOf(info.Producer);
+        document.getElementById('file-info').style.display = '';
+        document.getElementById('file-info').textContent = srcFile.name + ' — ' + Bartrue.formatBytes(srcFile.size);
+        document.getElementById('options').style.display = '';
+        document.getElementById('result').style.display = 'none';
+        Bartrue.setStatus(statusEl, '');
+      } catch (e) {
+        Bartrue.setStatus(statusEl, 'Could not read this PDF: ' + e.message, 'error');
+      }
+    }
+  });
+
+  var outputBlob = null;
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    Bartrue.setStatus(statusEl, 'Saving…', 'loading');
+    try {
+      var stripAll = document.getElementById('strip-all').checked;
+      var newInfo = {};
+      if (!stripAll) {
+        var fields = { Title: 'f-title', Author: 'f-author', Subject: 'f-subject', Keywords: 'f-keywords', Creator: 'f-creator', Producer: 'f-producer' };
+        for (var key in fields) {
+          var val = document.getElementById(fields[key]).value;
+          if (val) newInfo[key] = C.PDFString.fromText(val);
+        }
+        newInfo.ModDate = C.PDFString.fromText('D:' + new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z');
+      }
+      doc.setInfoDict(newInfo);
+      var outBytes = await doc.save();
+      outputBlob = new Blob([outBytes], { type: 'application/pdf' });
+      document.getElementById('result-info').textContent = (stripAll ? 'Metadata stripped. ' : 'Metadata updated. ') + Bartrue.formatBytes(outputBlob.size);
+      document.getElementById('result').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not save changes: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    if (outputBlob) Bartrue.downloadBlob(outputBlob, Bartrue.suggestName(srcFile.name, 'edited', 'pdf'));
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Image to Grayscale &mdash; Bartrue</title>
+<meta name="description" content="Convert a photo to black and white, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-grayscale";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Image to Grayscale</div>
+<div class="tool-header">
+  <div>
+    <h1>Image to Grayscale</h1>
+    <p class="lede">Convert a photo to black and white.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="field">
+      <label>Intensity (<span id="i-val">100</span>%)</label>
+      <input type="range" id="intensity" min="0" max="100" value="100" />
+    </div>
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Convert</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div id="result" class="result-preview" style="display:none"></div>
+  <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, resultBlob = null;
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    icon: '⚫',
+    title: 'Drop an image here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file;
+      document.getElementById('file-info').style.display = '';
+      document.getElementById('file-info').textContent = file.name + ' — ' + bmp.width + '×' + bmp.height;
+      document.getElementById('options').style.display = '';
+    }
+  });
+  document.getElementById('intensity').addEventListener('input', function () { document.getElementById('i-val').textContent = this.value; });
+
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    var statusEl = document.getElementById('status');
+    Bartrue.setStatus(statusEl, 'Converting…', 'loading');
+    try {
+      var canvas = Bartrue.makeCanvas(bitmap.width, bitmap.height);
+      var ctx = canvas.getContext('2d');
+      ctx.filter = 'grayscale(' + document.getElementById('intensity').value + '%)';
+      ctx.drawImage(bitmap, 0, 0);
+      var mime = srcFile.type && srcFile.type.indexOf('image/') === 0 && srcFile.type !== 'image/svg+xml' ? srcFile.type : 'image/png';
+      resultBlob = await Bartrue.canvasToBlob(canvas, mime);
+      Bartrue.showCanvasResult(document.getElementById('result'), canvas, Bartrue.formatBytes(resultBlob.size));
+      document.getElementById('download-row').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not convert this image: ' + e.message, 'error');
+    }
+  });
+  document.getElementById('download-btn').addEventListener('click', function () {
+    var ext = Bartrue.EXT_FOR_MIME[resultBlob.type] || 'png';
+    Bartrue.downloadBlob(resultBlob, Bartrue.suggestName(srcFile.name, 'grayscale', ext));
+  });
+})();
+</script>
+</body>
+</html>

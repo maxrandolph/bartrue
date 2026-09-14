@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Image Tools &mdash; Bartrue</title>
+<meta name="description" content="Convert, compress, resize, crop and edit images entirely in your browser." />
+<link rel="stylesheet" href="../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../"; window.BARTRUE_ACTIVE = "image";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../index.html">Home</a> / Image Tools</div>
+<h1>Image Tools</h1>
+<p class="lede">Every tool below reads and writes your image locally using the Canvas API. Nothing is uploaded.</p>
+
+<div class="search-box">
+  <input type="text" id="cat-search" placeholder="Search image tools&hellip;" aria-label="Search image tools" />
+</div>
+
+<div id="tool-grid" class="grid"></div>
+
+<script src="../assets/js/tools-data.js"></script>
+<script src="../assets/js/nav.js"></script>
+<script src="../assets/js/download.js"></script>
+<script src="../assets/js/render-grid.js"></script>
+<script>
+  window.Bartrue.initSearchableGrid({
+    tools: window.bartrueToolsByCategory("image"),
+    container: document.getElementById("tool-grid"),
+    input: document.getElementById("cat-search"),
+    root: "../"
+  });
+</script>
+</body>
+</html>

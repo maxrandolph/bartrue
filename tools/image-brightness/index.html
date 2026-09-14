@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Adjust Brightness &mdash; Bartrue</title>
+<meta name="description" content="Adjust image brightness and contrast, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-brightness";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Adjust Brightness</div>
+<div class="tool-header">
+  <div>
+    <h1>Adjust Brightness</h1>
+    <p class="lede">Fine-tune brightness and contrast with a live preview.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="field-row">
+      <div class="field"><label>Brightness (<span id="b-val">100</span>%)</label><input type="range" id="brightness" min="0" max="200" value="100" /></div>
+      <div class="field"><label>Contrast (<span id="c-val">100</span>%)</label><input type="range" id="contrast" min="0" max="200" value="100" /></div>
+    </div>
+    <div id="result" class="result-preview"></div>
+    <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, resultBlob = null;
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    icon: '☀️',
+    title: 'Drop an image here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file;
+      document.getElementById('file-info').style.display = '';
+      document.getElementById('file-info').textContent = file.name + ' — ' + bmp.width + '×' + bmp.height;
+      document.getElementById('options').style.display = '';
+      render();
+    }
+  });
+
+  async function render() {
+    var b = document.getElementById('brightness').value;
+    var c = document.getElementById('contrast').value;
+    document.getElementById('b-val').textContent = b;
+    document.getElementById('c-val').textContent = c;
+    var canvas = Bartrue.makeCanvas(bitmap.width, bitmap.height);
+    var ctx = canvas.getContext('2d');
+    ctx.filter = 'brightness(' + b + '%) contrast(' + c + '%)';
+    ctx.drawImage(bitmap, 0, 0);
+    var mime = srcFile.type && srcFile.type.indexOf('image/') === 0 && srcFile.type !== 'image/svg+xml' ? srcFile.type : 'image/png';
+    resultBlob = await Bartrue.canvasToBlob(canvas, mime);
+    Bartrue.showCanvasResult(document.getElementById('result'), canvas, Bartrue.formatBytes(resultBlob.size));
+    document.getElementById('download-row').style.display = '';
+  }
+  document.getElementById('brightness').addEventListener('input', render);
+  document.getElementById('contrast').addEventListener('input', render);
+  document.getElementById('download-btn').addEventListener('click', function () {
+    var ext = Bartrue.EXT_FOR_MIME[resultBlob.type] || 'png';
+    Bartrue.downloadBlob(resultBlob, Bartrue.suggestName(srcFile.name, 'adjusted', ext));
+  });
+})();
+</script>
+</body>
+</html>

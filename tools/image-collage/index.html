@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Image Collage &mdash; Bartrue</title>
+<meta name="description" content="Combine multiple images into one grid layout, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-collage";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Image Collage</div>
+<div class="tool-header">
+  <div>
+    <h1>Image Collage</h1>
+    <p class="lede">Drop several images to arrange them into a single grid.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <ul id="file-list" class="file-list"></ul>
+  <div id="options" style="display:none">
+    <div class="field-row">
+      <div class="field"><label>Columns</label><input type="number" id="cols" min="1" max="10" value="2" /></div>
+      <div class="field"><label>Cell size (px)</label><input type="number" id="cell-size" min="40" max="2000" value="400" /></div>
+      <div class="field"><label>Gap (px)</label><input type="number" id="gap" min="0" max="100" value="8" /></div>
+    </div>
+    <div class="field"><label>Background color</label><input type="color" id="bg" value="#ffffff" style="max-width:120px" /></div>
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Build collage</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div id="result" class="result-preview" style="display:none"></div>
+  <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var files = [];
+  var resultBlob = null;
+
+  Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'image/*',
+    multiple: true,
+    icon: '\u{1F5BC}️',
+    title: 'Drop images here',
+    hint: 'or click to browse — add as many as you like',
+    onFiles: function (newFiles) {
+      files = files.concat(newFiles);
+      refreshList();
+    }
+  });
+
+  function refreshList() {
+    var listEl = document.getElementById('file-list');
+    Bartrue.renderFileList(listEl, files, function (idx) {
+      files.splice(idx, 1);
+      refreshList();
+    });
+    document.getElementById('options').style.display = files.length ? '' : 'none';
+  }
+
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    var statusEl = document.getElementById('status');
+    if (!files.length) { Bartrue.setStatus(statusEl, 'Add at least one image first.', 'error'); return; }
+    Bartrue.setStatus(statusEl, 'Building collage…', 'loading');
+    try {
+      var bitmaps = await Promise.all(files.map(function (f) { return Bartrue.loadImageBitmap(f); }));
+      var cols = Math.max(1, parseInt(document.getElementById('cols').value, 10) || 1);
+      var cellSize = Math.max(20, parseInt(document.getElementById('cell-size').value, 10) || 400);
+      var gap = Math.max(0, parseInt(document.getElementById('gap').value, 10) || 0);
+      var rows = Math.ceil(bitmaps.length / cols);
+      var width = cols * cellSize + (cols + 1) * gap;
+      var height = rows * cellSize + (rows + 1) * gap;
+
+      var canvas = Bartrue.makeCanvas(width, height);
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = document.getElementById('bg').value;
+      ctx.fillRect(0, 0, width, height);
+
+      bitmaps.forEach(function (bmp, i) {
+        var col = i % cols, row = Math.floor(i / cols);
+        var cx = gap + col * (cellSize + gap);
+        var cy = gap + row * (cellSize + gap);
+        // Cover-fit: scale to fill the cell, center-cropping the overflow.
+        var scale = Math.max(cellSize / bmp.width, cellSize / bmp.height);
+        var dw = bmp.width * scale, dh = bmp.height * scale;
+        var dx = cx + (cellSize - dw) / 2, dy = cy + (cellSize - dh) / 2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(cx, cy, cellSize, cellSize);
+        ctx.clip();
+        ctx.drawImage(bmp, dx, dy, dw, dh);
+        ctx.restore();
+      });
+
+      resultBlob = await Bartrue.canvasToBlob(canvas, 'image/png');
+      Bartrue.showCanvasResult(document.getElementById('result'), canvas, width + '×' + height + ' · ' + Bartrue.formatBytes(resultBlob.size));
+      document.getElementById('download-row').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not build the collage: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    Bartrue.downloadBlob(resultBlob, 'collage.png');
+  });
+})();
+</script>
+</body>
+</html>

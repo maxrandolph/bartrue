@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Image to ASCII &mdash; Bartrue</title>
+<meta name="description" content="Convert an image into ASCII/text art, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-ascii";</script>
+<style>
+  #ascii-output { background: #0b0f0d; color: #cde8d3; font-family: "SF Mono", Consolas, monospace; white-space: pre; overflow: auto; line-height: 1; padding: 12px; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Image to ASCII</div>
+<div class="tool-header">
+  <div>
+    <h1>Image to ASCII</h1>
+    <p class="lede">Turn a photo into ASCII/text art you can copy or download.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="field-row">
+      <div class="field"><label>Output width (characters)</label><input type="range" id="cols" min="40" max="300" value="120" /></div>
+      <div class="field"><label><input type="checkbox" id="invert" /> Invert (for light-on-dark viewing)</label></div>
+      <div class="field"><label><input type="checkbox" id="color" /> Colored (HTML output)</label></div>
+    </div>
+    <pre id="ascii-output"></pre>
+    <div class="btn-row">
+      <button id="copy-btn" class="btn btn--primary">Copy text</button>
+      <button id="download-btn" class="btn">Download .txt</button>
+    </div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, plainText = '';
+  var RAMP = '@%#*+=-:. '; // dark to light
+
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    icon: '\u{1F524}',
+    title: 'Drop an image here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file;
+      document.getElementById('file-info').style.display = '';
+      document.getElementById('file-info').textContent = file.name + ' — ' + bmp.width + '×' + bmp.height;
+      document.getElementById('options').style.display = '';
+      render();
+    }
+  });
+
+  function render() {
+    var cols = parseInt(document.getElementById('cols').value, 10);
+    var invert = document.getElementById('invert').checked;
+    var colored = document.getElementById('color').checked;
+    // Characters are roughly twice as tall as wide, so halve the row count.
+    var rows = Math.max(1, Math.round((cols * (bitmap.height / bitmap.width)) * 0.5));
+
+    var canvas = Bartrue.makeCanvas(cols, rows);
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, cols, rows);
+    var data = ctx.getImageData(0, 0, cols, rows).data;
+
+    var ramp = invert ? RAMP.split('').reverse().join('') : RAMP;
+    var lines = [];
+    var htmlLines = [];
+    for (var y = 0; y < rows; y++) {
+      var line = '';
+      var htmlLine = '';
+      for (var x = 0; x < cols; x++) {
+        var i = (y * cols + x) * 4;
+        var r = data[i], g = data[i + 1], b = data[i + 2];
+        var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        var charIdx = Math.min(ramp.length - 1, Math.floor((1 - lum) * ramp.length));
+        var ch = ramp[charIdx];
+        line += ch;
+        if (colored) htmlLine += '<span style="color:rgb(' + r + ',' + g + ',' + b + ')">' + (ch === ' ' ? '&nbsp;' : ch) + '</span>';
+      }
+      lines.push(line);
+      htmlLines.push(htmlLine);
+    }
+    plainText = lines.join('\n');
+    var out = document.getElementById('ascii-output');
+    if (colored) {
+      out.innerHTML = htmlLines.join('\n');
+      out.style.color = '';
+    } else {
+      out.textContent = plainText;
+    }
+  }
+
+  ['cols', 'invert', 'color'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', render);
+  });
+
+  document.getElementById('copy-btn').addEventListener('click', async function () {
+    var statusEl = document.getElementById('status');
+    try {
+      await navigator.clipboard.writeText(plainText);
+      Bartrue.setStatus(statusEl, 'Copied to clipboard.', 'success');
+    } catch (e) {
+      Bartrue.setStatus(statusEl, 'Could not access the clipboard — select the text manually.', 'error');
+    }
+  });
+  document.getElementById('download-btn').addEventListener('click', function () {
+    var blob = new Blob([plainText], { type: 'text/plain' });
+    Bartrue.downloadBlob(blob, Bartrue.suggestName(srcFile.name, 'ascii', 'txt'));
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Add Watermark to PDF &mdash; Bartrue</title>
+<meta name="description" content="Stamp text over every page of a PDF, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "pdf-watermark";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../pdf-tools/index.html">PDF Tools</a> / Add Watermark</div>
+<div class="tool-header">
+  <div>
+    <h1>Add Watermark</h1>
+    <p class="lede">Stamp text diagonally (or straight) across every page.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+
+  <div id="options" style="display:none">
+    <div class="field"><label>Watermark text</label><input type="text" id="wm-text" value="CONFIDENTIAL" /></div>
+    <div class="field-row">
+      <div class="field"><label>Font size</label><input type="number" id="wm-size" value="48" min="6" max="200" /></div>
+      <div class="field"><label>Rotation (degrees)</label><input type="number" id="wm-angle" value="45" min="-180" max="180" /></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Color</label><input type="color" id="wm-color" value="#ff0000" /></div>
+      <div class="field"><label>Opacity (<span id="wm-opacity-val">35</span>%)</label><input type="range" id="wm-opacity" min="5" max="100" value="35" /></div>
+    </div>
+    <div class="field"><label>Bold</label>
+      <select id="wm-bold"><option value="0">Regular</option><option value="1">Bold</option></select>
+    </div>
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Add Watermark</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+
+  <div id="result" class="result-preview" style="display:none">
+    <iframe id="result-frame" style="width:100%;height:520px;border:0;background:#fff"></iframe>
+    <div class="result-preview__bar">
+      <span id="result-info"></span>
+      <button id="download-btn" class="btn btn--primary">Download</button>
+    </div>
+  </div>
+
+  <div class="privacy-note">&#128274; Watermarking happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/pdf/flate.js"></script>
+<script src="../../assets/js/pdf/core.js"></script>
+<script src="../../assets/js/pdf/document.js"></script>
+<script src="../../assets/js/pdf/writer.js"></script>
+<script src="../../assets/js/pdf/fonts.js"></script>
+<script src="../../assets/js/pdf/build.js"></script>
+
+<script>
+(function () {
+  var doc = null, srcFile = null;
+  var statusEl = document.getElementById('status');
+
+  document.getElementById('wm-opacity').addEventListener('input', function () {
+    document.getElementById('wm-opacity-val').textContent = this.value;
+  });
+
+  Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'application/pdf',
+    icon: '\u{1F4A7}',
+    title: 'Drop a PDF file here',
+    hint: 'or click to browse',
+    onFiles: async function (files) {
+      srcFile = files[0];
+      Bartrue.setStatus(statusEl, 'Loading…', 'loading');
+      try {
+        var bytes = new Uint8Array(await srcFile.arrayBuffer());
+        doc = await PDFDocument.load(bytes);
+        var pages = await doc.getPages();
+        document.getElementById('file-info').style.display = '';
+        document.getElementById('file-info').textContent = srcFile.name + ' — ' + pages.length + ' page' + (pages.length === 1 ? '' : 's');
+        document.getElementById('options').style.display = '';
+        document.getElementById('result').style.display = 'none';
+        Bartrue.setStatus(statusEl, '');
+      } catch (e) {
+        Bartrue.setStatus(statusEl, 'Could not read this PDF: ' + e.message, 'error');
+      }
+    }
+  });
+
+  function hexToRgb01(hex) {
+    var n = parseInt(hex.replace('#', ''), 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+
+  var outputBlob = null;
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    Bartrue.setStatus(statusEl, 'Applying watermark…', 'loading');
+    try {
+      var text = document.getElementById('wm-text').value || 'CONFIDENTIAL';
+      var size = parseFloat(document.getElementById('wm-size').value) || 48;
+      var angle = parseFloat(document.getElementById('wm-angle').value) || 0;
+      var color = hexToRgb01(document.getElementById('wm-color').value);
+      var opacity = parseFloat(document.getElementById('wm-opacity').value) / 100;
+      var bold = document.getElementById('wm-bold').value === '1';
+      var fontName = bold ? 'Helvetica-Bold' : 'Helvetica';
+      var resourceKey = bold ? 'FTHelvB' : 'FTHelv';
+
+      var pages = await doc.getPages();
+      for (var i = 0; i < pages.length; i++) {
+        await PDFBuild.ensureFontResource(doc, pages[i], fontName, resourceKey);
+        var gsName = null;
+        if (opacity < 1) gsName = await PDFBuild.ensureAlphaGState(doc, pages[i], opacity, 'FTAlpha');
+        var box = await doc.getPageBox(pages[i]);
+        var cx = (box[0] + box[2]) / 2;
+        var cy = (box[1] + box[3]) / 2;
+        var width = PDFFonts.widthOfText(fontName, text, size);
+        var rad = (angle * Math.PI) / 180;
+        var x = cx - (width / 2) * Math.cos(rad);
+        var y = cy - (width / 2) * Math.sin(rad);
+        var ops = PDFBuild.textOperators({ text: text, size: size, x: x, y: y, angle: angle, color: color, resourceKey: resourceKey, gsName: gsName });
+        await PDFBuild.appendPageContent(doc, pages[i], ops);
+      }
+      var outBytes = await doc.save();
+      outputBlob = new Blob([outBytes], { type: 'application/pdf' });
+      var url = URL.createObjectURL(outputBlob);
+      document.getElementById('result-frame').src = url;
+      document.getElementById('result-info').textContent = Bartrue.formatBytes(outputBlob.size);
+      document.getElementById('result').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not watermark this PDF: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    if (outputBlob) Bartrue.downloadBlob(outputBlob, Bartrue.suggestName(srcFile.name, 'watermarked', 'pdf'));
+  });
+})();
+</script>
+</body>
+</html>

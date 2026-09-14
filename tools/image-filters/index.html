@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CSS Image Filters &mdash; Bartrue</title>
+<meta name="description" content="Preview CSS filter effects on an image and copy the generated code, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-filters";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / CSS Image Filters</div>
+<div class="tool-header">
+  <div>
+    <h1>CSS Image Filters</h1>
+    <p class="lede">Tune a combination of CSS filters with a live preview, then copy the generated <code>filter</code> value or export a baked-in copy of the image.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="field-row">
+      <div class="field"><label>Brightness (<span id="v-brightness">100</span>%)</label><input type="range" id="brightness" min="0" max="200" value="100" /></div>
+      <div class="field"><label>Contrast (<span id="v-contrast">100</span>%)</label><input type="range" id="contrast" min="0" max="200" value="100" /></div>
+      <div class="field"><label>Saturation (<span id="v-saturate">100</span>%)</label><input type="range" id="saturate" min="0" max="300" value="100" /></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Grayscale (<span id="v-grayscale">0</span>%)</label><input type="range" id="grayscale" min="0" max="100" value="0" /></div>
+      <div class="field"><label>Sepia (<span id="v-sepia">0</span>%)</label><input type="range" id="sepia" min="0" max="100" value="0" /></div>
+      <div class="field"><label>Hue rotate (<span id="v-hue-rotate">0</span>&deg;)</label><input type="range" id="hue-rotate" min="0" max="360" value="0" /></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Blur (<span id="v-blur">0</span>px)</label><input type="range" id="blur" min="0" max="20" value="0" /></div>
+      <div class="field"><label>Invert (<span id="v-invert">0</span>%)</label><input type="range" id="invert" min="0" max="100" value="0" /></div>
+    </div>
+    <div class="btn-row"><button id="reset-btn" class="btn" type="button">Reset all</button></div>
+
+    <div class="field"><label>CSS <code>filter</code> value</label><input type="text" id="css-value" readonly style="font-family:monospace" /></div>
+    <div class="btn-row">
+      <button id="copy-btn" class="btn btn--primary">Copy CSS</button>
+      <button id="download-btn" class="btn">Download filtered PNG</button>
+    </div>
+
+    <div id="result" class="result-preview"></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, resultBlob = null;
+  var UNITS = { brightness: '%', contrast: '%', saturate: '%', grayscale: '%', sepia: '%', 'hue-rotate': 'deg', blur: 'px', invert: '%' };
+  var DEFAULTS = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0, sepia: 0, 'hue-rotate': 0, blur: 0, invert: 0 };
+
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    icon: '\u{1F3A8}',
+    title: 'Drop an image here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file;
+      document.getElementById('file-info').style.display = '';
+      document.getElementById('file-info').textContent = file.name + ' — ' + bmp.width + '×' + bmp.height;
+      document.getElementById('options').style.display = '';
+      render();
+    }
+  });
+
+  function buildFilterString() {
+    return Object.keys(UNITS).map(function (name) {
+      var el = document.getElementById(name);
+      return name + '(' + el.value + UNITS[name] + ')';
+    }).join(' ');
+  }
+
+  async function render() {
+    Object.keys(UNITS).forEach(function (name) {
+      document.getElementById('v-' + name).textContent = document.getElementById(name).value;
+    });
+    var filterStr = buildFilterString();
+    document.getElementById('css-value').value = 'filter: ' + filterStr + ';';
+
+    var canvas = Bartrue.makeCanvas(bitmap.width, bitmap.height);
+    var ctx = canvas.getContext('2d');
+    ctx.filter = filterStr;
+    ctx.drawImage(bitmap, 0, 0);
+    var mime = srcFile.type && srcFile.type.indexOf('image/') === 0 && srcFile.type !== 'image/svg+xml' ? srcFile.type : 'image/png';
+    resultBlob = await Bartrue.canvasToBlob(canvas, mime);
+    Bartrue.showCanvasResult(document.getElementById('result'), canvas, '');
+  }
+
+  Object.keys(UNITS).forEach(function (name) {
+    document.getElementById(name).addEventListener('input', render);
+  });
+  document.getElementById('reset-btn').addEventListener('click', function () {
+    Object.keys(DEFAULTS).forEach(function (name) { document.getElementById(name).value = DEFAULTS[name]; });
+    render();
+  });
+  document.getElementById('copy-btn').addEventListener('click', async function () {
+    var statusEl = document.getElementById('status');
+    try {
+      await navigator.clipboard.writeText(document.getElementById('css-value').value);
+      Bartrue.setStatus(statusEl, 'Copied to clipboard.', 'success');
+    } catch (e) {
+      document.getElementById('css-value').select();
+      Bartrue.setStatus(statusEl, 'Could not access the clipboard — text is selected, press Ctrl/Cmd+C.', 'error');
+    }
+  });
+  document.getElementById('download-btn').addEventListener('click', function () {
+    var ext = Bartrue.EXT_FOR_MIME[resultBlob.type] || 'png';
+    Bartrue.downloadBlob(resultBlob, Bartrue.suggestName(srcFile.name, 'filtered', ext));
+  });
+})();
+</script>
+</body>
+</html>

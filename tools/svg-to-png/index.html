@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SVG to PNG &mdash; Bartrue</title>
+<meta name="description" content="Rasterize a vector SVG into a PNG at any resolution, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "svg-to-png";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / SVG to PNG</div>
+<div class="tool-header">
+  <div>
+    <h1>SVG to PNG</h1>
+    <p class="lede">Rasterize a vector SVG into a crisp PNG at any output size.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="field-row">
+      <div class="field"><label>Width (px)</label><input type="number" id="out-w" min="1" /></div>
+      <div class="field"><label>Height (px)</label><input type="number" id="out-h" min="1" /></div>
+      <div class="field"><label><input type="checkbox" id="lock-ratio" checked /> Lock aspect ratio</label></div>
+    </div>
+    <div class="field">
+      <label><input type="checkbox" id="transparent" checked /> Transparent background</label>
+    </div>
+    <div class="field" id="bg-field" style="display:none">
+      <label>Background color</label>
+      <input type="color" id="bg-color" value="#ffffff" style="max-width:120px" />
+    </div>
+    <div class="btn-row"><button id="run-btn" class="btn btn--primary">Convert</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div id="result" class="result-preview" style="display:none"></div>
+  <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download PNG</button></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var srcFile = null, resultBlob = null, aspect = 1, img = null;
+
+  Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'image/svg+xml,.svg',
+    icon: '\u{1F504}',
+    title: 'Drop an SVG file here',
+    onFiles: function (files) {
+      var file = files[0];
+      var statusEl = document.getElementById('status');
+      var reader = new FileReader();
+      reader.onload = function () {
+        var svgText = reader.result;
+        img = new Image();
+        img.onload = function () {
+          srcFile = file;
+          var w = img.naturalWidth || 512, h = img.naturalHeight || 512;
+          aspect = w / h || 1;
+          document.getElementById('out-w').value = Math.round(w);
+          document.getElementById('out-h').value = Math.round(h);
+          document.getElementById('file-info').style.display = '';
+          document.getElementById('file-info').textContent = file.name + ' — natural size ' + Math.round(w) + '×' + Math.round(h);
+          document.getElementById('options').style.display = '';
+          Bartrue.setStatus(statusEl, '');
+        };
+        img.onerror = function () {
+          Bartrue.setStatus(statusEl, 'Could not parse this SVG file — it may be malformed.', 'error');
+        };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
+      };
+      reader.onerror = function () { Bartrue.setStatus(statusEl, 'Could not read this file.', 'error'); };
+      reader.readAsText(file);
+    }
+  });
+
+  document.getElementById('out-w').addEventListener('input', function () {
+    if (document.getElementById('lock-ratio').checked) {
+      document.getElementById('out-h').value = Math.round(parseFloat(this.value) / aspect) || '';
+    }
+  });
+  document.getElementById('out-h').addEventListener('input', function () {
+    if (document.getElementById('lock-ratio').checked) {
+      document.getElementById('out-w').value = Math.round(parseFloat(this.value) * aspect) || '';
+    }
+  });
+  document.getElementById('transparent').addEventListener('change', function () {
+    document.getElementById('bg-field').style.display = this.checked ? 'none' : '';
+  });
+
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    var statusEl = document.getElementById('status');
+    Bartrue.setStatus(statusEl, 'Rendering…', 'loading');
+    try {
+      var w = Math.max(1, parseInt(document.getElementById('out-w').value, 10) || 512);
+      var h = Math.max(1, parseInt(document.getElementById('out-h').value, 10) || 512);
+      var canvas = Bartrue.makeCanvas(w, h);
+      var ctx = canvas.getContext('2d');
+      if (!document.getElementById('transparent').checked) {
+        ctx.fillStyle = document.getElementById('bg-color').value;
+        ctx.fillRect(0, 0, w, h);
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      resultBlob = await Bartrue.canvasToBlob(canvas, 'image/png');
+      Bartrue.showCanvasResult(document.getElementById('result'), canvas, w + '×' + h + ' · ' + Bartrue.formatBytes(resultBlob.size));
+      document.getElementById('download-row').style.display = '';
+      Bartrue.setStatus(statusEl, 'Done.', 'success');
+    } catch (e) {
+      console.error(e);
+      Bartrue.setStatus(statusEl, 'Could not render this SVG: ' + e.message, 'error');
+    }
+  });
+
+  document.getElementById('download-btn').addEventListener('click', function () {
+    Bartrue.downloadBlob(resultBlob, Bartrue.suggestName(srcFile.name, '', 'png'));
+  });
+})();
+</script>
+</body>
+</html>

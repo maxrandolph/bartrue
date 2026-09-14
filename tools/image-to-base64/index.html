@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Image to Base64 &mdash; Bartrue</title>
+<meta name="description" content="Encode an image into a Base64 data URI, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-to-base64";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Image to Base64</div>
+<div class="tool-header">
+  <div>
+    <h1>Image to Base64</h1>
+    <p class="lede">Encode an image as a Base64 data URI you can paste into CSS, HTML or JSON.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="field-row">
+      <div class="field"><label><input type="checkbox" id="data-uri-toggle" checked /> Include <code>data:</code> URI prefix</label></div>
+    </div>
+    <div class="field"><label>Result</label><textarea id="output" rows="10" readonly style="font-family:monospace;font-size:12px;word-break:break-all"></textarea></div>
+    <div class="btn-row">
+      <button id="copy-btn" class="btn btn--primary">Copy to clipboard</button>
+      <button id="download-btn" class="btn">Download as .txt</button>
+    </div>
+    <div id="preview" class="result-preview"></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var srcFile = null, fullDataUri = '';
+  Bartrue.createDropzone(document.getElementById('dropzone'), {
+    accept: 'image/*',
+    icon: '\u{1F522}',
+    title: 'Drop an image here',
+    onFiles: function (files) {
+      var file = files[0];
+      srcFile = file;
+      var reader = new FileReader();
+      reader.onload = function () {
+        fullDataUri = reader.result;
+        document.getElementById('file-info').style.display = '';
+        document.getElementById('file-info').textContent = file.name + ' — ' + Bartrue.formatBytes(file.size);
+        document.getElementById('options').style.display = '';
+        document.getElementById('preview').style.display = '';
+        document.getElementById('preview').innerHTML = '<img src="' + fullDataUri + '" style="max-width:200px;border-radius:8px" />';
+        render();
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  function render() {
+    var withPrefix = document.getElementById('data-uri-toggle').checked;
+    var comma = fullDataUri.indexOf(',');
+    var raw = withPrefix ? fullDataUri : fullDataUri.slice(comma + 1);
+    document.getElementById('output').value = raw;
+  }
+  document.getElementById('data-uri-toggle').addEventListener('change', render);
+
+  document.getElementById('copy-btn').addEventListener('click', async function () {
+    var statusEl = document.getElementById('status');
+    try {
+      await navigator.clipboard.writeText(document.getElementById('output').value);
+      Bartrue.setStatus(statusEl, 'Copied to clipboard.', 'success');
+    } catch (e) {
+      document.getElementById('output').select();
+      Bartrue.setStatus(statusEl, 'Could not access the clipboard automatically — text is selected, press Ctrl/Cmd+C.', 'error');
+    }
+  });
+  document.getElementById('download-btn').addEventListener('click', function () {
+    var blob = new Blob([document.getElementById('output').value], { type: 'text/plain' });
+    Bartrue.downloadBlob(blob, Bartrue.suggestName(srcFile.name, 'base64', 'txt'));
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Image Watermark &mdash; Bartrue</title>
+<meta name="description" content="Add a text watermark to an image, entirely in your browser." />
+<link rel="stylesheet" href="../../assets/css/main.css" />
+<script>window.BARTRUE_ROOT = "../../"; window.BARTRUE_ACTIVE = "image-watermark";</script>
+</head>
+<body>
+
+<div class="breadcrumbs"><a href="../../index.html">Home</a> / <a href="../../image-tools/index.html">Image Tools</a> / Image Watermark</div>
+<div class="tool-header">
+  <div>
+    <h1>Image Watermark</h1>
+    <p class="lede">Stamp text across a photo, once or tiled.</p>
+    <div class="tag-row"><span class="tag tag--local">Runs 100% locally</span></div>
+  </div>
+</div>
+
+<div class="tool-panel">
+  <div id="dropzone"></div>
+  <div id="file-info" class="note" style="display:none"></div>
+  <div id="options" style="display:none">
+    <div class="field"><label>Watermark text</label><input type="text" id="text" value="SAMPLE" /></div>
+    <div class="field-row">
+      <div class="field"><label>Font size (<span id="s-val">48</span>px)</label><input type="range" id="size" min="8" max="200" value="48" /></div>
+      <div class="field"><label>Opacity (<span id="o-val">40</span>%)</label><input type="range" id="opacity" min="5" max="100" value="40" /></div>
+      <div class="field"><label>Rotation (<span id="r-val">-30</span>&deg;)</label><input type="range" id="rotation" min="-90" max="90" value="-30" /></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Color</label><input type="color" id="color" value="#ffffff" style="max-width:120px" /></div>
+      <div class="field"><label>Layout</label>
+        <select id="layout">
+          <option value="tile" selected>Tiled</option>
+          <option value="center">Centered once</option>
+        </select>
+      </div>
+    </div>
+    <div id="result" class="result-preview"></div>
+    <div class="btn-row" id="download-row" style="display:none"><button id="download-btn" class="btn btn--primary">Download</button></div>
+  </div>
+  <div id="status" class="status-line"></div>
+  <div class="privacy-note">&#128274; Everything happens in-memory in this tab; nothing is uploaded.</div>
+</div>
+
+<script src="../../assets/js/tools-data.js"></script>
+<script src="../../assets/js/nav.js"></script>
+<script src="../../assets/js/download.js"></script>
+<script src="../../assets/js/dropzone.js"></script>
+<script src="../../assets/js/image/common.js"></script>
+
+<script>
+(function () {
+  var bitmap = null, srcFile = null, resultBlob = null;
+  Bartrue.setupImageDropzone(document.getElementById('dropzone'), {
+    icon: '\u{1F4A7}',
+    title: 'Drop an image here',
+    onImage: function (bmp, file) {
+      bitmap = bmp; srcFile = file;
+      document.getElementById('file-info').style.display = '';
+      document.getElementById('file-info').textContent = file.name + ' — ' + bmp.width + '×' + bmp.height;
+      document.getElementById('options').style.display = '';
+      render();
+    }
+  });
+
+  async function render() {
+    document.getElementById('s-val').textContent = document.getElementById('size').value;
+    document.getElementById('o-val').textContent = document.getElementById('opacity').value;
+    document.getElementById('r-val').textContent = document.getElementById('rotation').value;
+
+    var canvas = Bartrue.makeCanvas(bitmap.width, bitmap.height);
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0);
+
+    var text = document.getElementById('text').value || 'SAMPLE';
+    var size = parseInt(document.getElementById('size').value, 10);
+    var opacity = parseInt(document.getElementById('opacity').value, 10) / 100;
+    var angle = (parseInt(document.getElementById('rotation').value, 10) * Math.PI) / 180;
+    var color = document.getElementById('color').value;
+    var layout = document.getElementById('layout').value;
+
+    ctx.font = size + 'px sans-serif';
+    ctx.fillStyle = color;
+    ctx.globalAlpha = opacity;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+
+    if (layout === 'center') {
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(angle);
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    } else {
+      var textWidth = ctx.measureText(text).width;
+      var stepX = Math.max(textWidth + size * 2, 40);
+      var stepY = Math.max(size * 3, 40);
+      var diag = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height);
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(angle);
+      for (var y = -diag; y < diag; y += stepY) {
+        for (var x = -diag; x < diag; x += stepX) {
+          ctx.fillText(text, x, y);
+        }
+      }
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
+    var mime = srcFile.type && srcFile.type.indexOf('image/') === 0 && srcFile.type !== 'image/svg+xml' ? srcFile.type : 'image/png';
+    resultBlob = await Bartrue.canvasToBlob(canvas, mime);
+    Bartrue.showCanvasResult(document.getElementById('result'), canvas, Bartrue.formatBytes(resultBlob.size));
+    document.getElementById('download-row').style.display = '';
+  }
+
+  ['text', 'size', 'opacity', 'rotation', 'color', 'layout'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', render);
+  });
+  document.getElementById('download-btn').addEventListener('click', function () {
+    var ext = Bartrue.EXT_FOR_MIME[resultBlob.type] || 'png';
+    Bartrue.downloadBlob(resultBlob, Bartrue.suggestName(srcFile.name, 'watermarked', ext));
+  });
+})();
+</script>
+</body>
+</html>

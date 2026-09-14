@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bartrue &mdash; free offline PDF &amp; image tools</title>
+<meta name="description" content="An open-source, offline-first clone of footrue.com. Free PDF and image tools that run entirely in your browser." />
+<link rel="stylesheet" href="assets/css/main.css" />
+<script>window.BARTRUE_ROOT = ""; window.BARTRUE_ACTIVE = "home";</script>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-badges">
+    <span class="badge badge--accent">100% client-side</span>
+    <span class="badge">No uploads, ever</span>
+    <span class="badge">Works fully offline</span>
+    <span class="badge">MIT licensed</span>
+  </div>
+  <h1>Free tools that never leave your browser</h1>
+  <p>An open-source clone of footrue.com. Every PDF and image tool here runs locally on your device &mdash; no server, no account, no internet connection required once you've loaded the page.</p>
+</section>
+
+<div class="search-box">
+  <input type="text" id="global-search" placeholder="Search all tools&hellip; (e.g. merge, compress, watermark)" aria-label="Search tools" />
+</div>
+
+<h2 class="section-title">Browse by category</h2>
+<div class="category-strip">
+  <a class="card" href="pdf-tools/index.html">
+    <span class="card__icon">&#128196;</span>
+    <h3>PDF Tools</h3>
+    <p>Merge, split, compress, watermark, redact and more.</p>
+    <div class="count" id="pdf-count"></div>
+  </a>
+  <a class="card" href="image-tools/index.html">
+    <span class="card__icon">&#128444;&#65039;</span>
+    <h3>Image Tools</h3>
+    <p>Convert, compress, resize, crop and edit images.</p>
+    <div class="count" id="image-count"></div>
+  </a>
+</div>
+
+<h2 class="section-title">All tools</h2>
+<div id="tool-grid" class="grid"></div>
+
+<hr class="sep" />
+
+<div class="two-col">
+  <div>
+    <h2>Why this exists</h2>
+    <p>footrue.com is a genuinely useful set of free browser tools, but it isn't open source &mdash; you have to trust a closed server-side (or at least unauditable) implementation with your files, and you can't run it yourself if it ever goes away.</p>
+    <p>This project reimplements the same tools from scratch, with a very deliberate constraint: <strong>zero build step and zero dependencies</strong>. There's no <code>npm install</code>, no bundler, no CDN script, nothing fetched at runtime. Clone the repo, open <code>index.html</code> (or point any static file server at the folder), and everything works &mdash; even with your network adapter switched off.</p>
+  </div>
+  <div class="tool-panel">
+    <h3>Run it locally</h3>
+    <pre class="mono" style="white-space:pre-wrap;font-size:12.5px;color:var(--text-dim);margin:0 0 12px;">git clone &lt;this repo&gt;
+cd bartrue
+# then just open index.html in a browser, or:
+python3 -m http.server 8080</pre>
+    <p style="margin:0;font-size:13px;">No Node.js, no npm, no build. See the README for details and current tool status.</p>
+  </div>
+</div>
+
+<script src="assets/js/tools-data.js"></script>
+<script src="assets/js/nav.js"></script>
+<script src="assets/js/download.js"></script>
+<script src="assets/js/render-grid.js"></script>
+<script>
+  document.getElementById("pdf-count").textContent = window.bartrueToolsByCategory("pdf").length + " tools";
+  document.getElementById("image-count").textContent = window.bartrueToolsByCategory("image").length + " tools";
+  window.Bartrue.initSearchableGrid({
+    tools: window.BARTRUE_TOOLS,
+    container: document.getElementById("tool-grid"),
+    input: document.getElementById("global-search"),
+    root: ""
+  });
+</script>
+</body>
+</html>
